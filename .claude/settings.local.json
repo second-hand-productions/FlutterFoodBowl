@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter create *)",
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\mushbrain\\\\source\\\\repos\\\\FlutterFoodBowl\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(Format-Table FullName)"
+    ]
+  }
+}
