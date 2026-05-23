@@ -1,0 +1,33 @@
+name: Deploy COD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cod/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: cod
+        run: flutter pub get
+
+      - name: Build web
+        working-directory: cod
+        run: flutter build web --release
+
+      - name: Deploy
+        run: |
+          sudo mkdir -p /var/www/cod
+          sudo rsync -a --delete cod/build/web/ /var/www/cod/

@@ -25,8 +25,8 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 // ── WiFi credentials ──────────────────────────────────────────────────────────
-const char* WIFI_SSID     = "YOUR_SSID";
-const char* WIFI_PASSWORD = "YOUR_PASSWORD";
+const char* WIFI_SSID     = "TP-Link_14DC";
+const char* WIFI_PASSWORD = "28760795";
 // ── MQTT broker ───────────────────────────────────────────────────────────────
 const char* MQTT_HOST = "192.168.0.49";
 const int   MQTT_PORT = 1883;           // TCP port (not the WebSocket 9001 port)
@@ -145,6 +145,7 @@ void setup() {
   pinMode(PIN_HALL_OPEN,   INPUT_PULLUP);
   pinMode(PIN_HALL_CLOSED, INPUT_PULLUP);
   // Build bowl ID from MAC address (no separators)
+  WiFi.mode(WIFI_STA);  // must init WiFi before macAddress() returns real bytes
   uint8_t mac[6];
   WiFi.macAddress(mac);
   snprintf(g_bowlId, sizeof(g_bowlId), "%02x%02x%02x%02x%02x%02x",
