@@ -1,0 +1,32 @@
+name: Deploy CLA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cla/**'
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: cla
+        run: flutter pub get
+
+      - name: Build web
+        working-directory: cla
+        run: flutter build web --release
+
+      - name: Deploy
+        run: |
+          sudo mkdir -p /var/www/cla
+          sudo rsync -a --delete cla/build/web/ /var/www/cla/
