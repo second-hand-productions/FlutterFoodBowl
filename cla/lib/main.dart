@@ -134,7 +134,8 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
   // ── MQTT ───────────────────────────────────────────────────────────────────
 
   Future<void> _connect() async {
-    _client = MqttBrowserClient('ws://$mqttHost', 'flutter_food_bowl');
+    final clientId = 'flutter_food_bowl_${DateTime.now().millisecondsSinceEpoch}';
+    _client = MqttBrowserClient('ws://$mqttHost', clientId);
     _client.port = mqttPort;
     _client.keepAlivePeriod = 30;
     _client.onDisconnected = _onDisconnected;
@@ -142,7 +143,7 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
     _client.logging(on: false);
 
     final connMessage = MqttConnectMessage()
-        .withClientIdentifier('flutter_food_bowl')
+        .withClientIdentifier(clientId)
         .startClean()
         .withWillQos(MqttQos.atLeastOnce);
     _client.connectionMessage = connMessage;
@@ -168,7 +169,8 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
   }
 
   void _onConnected() {
-    _client.subscribe('$topicPrefix/+/status', MqttQos.atLeastOnce);
+    _client.subscribe('$topicPrefix/+/status',   MqttQos.atLeastOnce);
+    _client.subscribe('$topicPrefix/+/announce', MqttQos.atLeastOnce);
     _client.updates?.listen(_onMessage);
     if (mounted) {
       setState(() {
@@ -196,10 +198,16 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
     final parts = rec.topic.split('/');
     if (parts.length < 4) return;
     final bowlId = parts[2];
+    final action = parts[3];
 
     final message = rec.payload as MqttPublishMessage;
     final payload =
         MqttPublishPayload.bytesToStringAsString(message.payload.message);
+
+    if (action == 'announce') {
+      _handleAnnounce(bowlId);
+      return;
+    }
 
     final idx = _bowls.indexWhere((b) => b.id == bowlId);
     if (idx == -1) return;
@@ -211,6 +219,14 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
         _bowls[idx].lidState = LidState.closed;
       }
     });
+  }
+
+  // Auto-add a bowl when its ESP32 announces itself via MQTT.
+  // Uses last 4 chars of the MAC as a default name — user can rename later.
+  void _handleAnnounce(String bowlId) {
+    if (_bowls.any((b) => b.id == bowlId)) return;
+    final defaultName = 'Bowl ${bowlId.substring(bowlId.length - 4)}';
+    _addBowl(bowlId, defaultName);
   }
 
   void _publish(String bowlId, String command) {

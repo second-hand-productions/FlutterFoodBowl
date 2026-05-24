@@ -43,6 +43,7 @@ const unsigned long MOTOR_TIMEOUT_MS = 5000;  // max travel time before "failed"
 char g_bowlId[13];        // 12 hex chars + null  e.g. "a4cf123456ab"
 char g_cmdTopic[64];
 char g_statusTopic[64];
+char g_announceTopic[64];
 WiFiClient   wifiClient;
 PubSubClient mqtt(wifiClient);
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,6 +87,11 @@ void publishStatus(const char* status) {
   mqtt.publish(g_statusTopic, status, /*retained=*/true);
   Serial.printf("[MQTT] %s → %s\n", g_statusTopic, status);
 }
+// Retained announce so Flutter apps discover this bowl even after it booted.
+void publishAnnounce() {
+  mqtt.publish(g_announceTopic, g_bowlId, /*retained=*/true);
+  Serial.printf("[MQTT] %s → %s\n", g_announceTopic, g_bowlId);
+}
 void publishCurrentState() {
   if      (digitalRead(PIN_HALL_OPEN)   == LOW) publishStatus("open");
   else if (digitalRead(PIN_HALL_CLOSED) == LOW) publishStatus("closed");
@@ -124,6 +130,7 @@ void connectMQTT() {
       Serial.println(" connected.");
       mqtt.subscribe(g_cmdTopic);
       Serial.printf("[MQTT] Subscribed to %s\n", g_cmdTopic);
+      publishAnnounce();       // let Flutter apps discover this bowl
       publishCurrentState();   // announce lid position on (re)connect
     } else {
       Serial.printf(" failed (rc=%d) — retrying in 5 s\n", mqtt.state());
@@ -150,11 +157,13 @@ void setup() {
   WiFi.macAddress(mac);
   snprintf(g_bowlId, sizeof(g_bowlId), "%02x%02x%02x%02x%02x%02x",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  snprintf(g_cmdTopic,    sizeof(g_cmdTopic),    "%s/%s/command", TOPIC_PREFIX, g_bowlId);
-  snprintf(g_statusTopic, sizeof(g_statusTopic), "%s/%s/status",  TOPIC_PREFIX, g_bowlId);
-  Serial.printf("\n[Bowl] ID:             %s\n", g_bowlId);
-  Serial.printf("[Bowl] Command topic:  %s\n", g_cmdTopic);
-  Serial.printf("[Bowl] Status topic:   %s\n", g_statusTopic);
+  snprintf(g_cmdTopic,      sizeof(g_cmdTopic),      "%s/%s/command",  TOPIC_PREFIX, g_bowlId);
+  snprintf(g_statusTopic,   sizeof(g_statusTopic),   "%s/%s/status",   TOPIC_PREFIX, g_bowlId);
+  snprintf(g_announceTopic, sizeof(g_announceTopic), "%s/%s/announce", TOPIC_PREFIX, g_bowlId);
+  Serial.printf("\n[Bowl] ID:              %s\n", g_bowlId);
+  Serial.printf("[Bowl] Command topic:   %s\n", g_cmdTopic);
+  Serial.printf("[Bowl] Status topic:    %s\n", g_statusTopic);
+  Serial.printf("[Bowl] Announce topic:  %s\n", g_announceTopic);
   connectWiFi();
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setCallback(mqttCallback);
