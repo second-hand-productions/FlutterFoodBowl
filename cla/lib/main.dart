@@ -1,14 +1,16 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_browser_client.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pocketbase/pocketbase.dart';
 
 // ── MQTT configuration ──────────────────────────────────────────────────────
 const String mqttHost = '192.168.0.49';
 const int mqttPort = 9001; // WebSocket port
 const String topicPrefix = 'home/foodbowl';
+// ── PocketBase configuration ─────────────────────────────────────────────────
+const String pbUrl = 'http://pocketbase.lan';
+final pb = PocketBase(pbUrl);
 // ────────────────────────────────────────────────────────────────────────────
 
 void main() {
@@ -34,16 +36,23 @@ class FoodBowlApp extends StatelessWidget {
 enum LidState { unknown, open, closed }
 
 class Bowl {
-  final String id;
+  final String pbId;  // PocketBase record ID (used for delete)
+  final String id;    // Hardware bowl ID (MAC-derived)
   String name;
   LidState lidState;
 
-  Bowl({required this.id, required this.name, this.lidState = LidState.unknown});
+  Bowl({
+    required this.pbId,
+    required this.id,
+    required this.name,
+    this.lidState = LidState.unknown,
+  });
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name};
-
-  factory Bowl.fromJson(Map<String, dynamic> json) =>
-      Bowl(id: json['id'] as String, name: json['name'] as String);
+  factory Bowl.fromRecord(RecordModel record) => Bowl(
+        pbId: record.id,
+        id: record.getStringValue('bowl_id'),
+        name: record.getStringValue('name'),
+      );
 }
 
 class FoodBowlHome extends StatefulWidget {
@@ -66,23 +75,63 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
     _connect();
   }
 
+  // ── PocketBase ─────────────────────────────────────────────────────────────
+
   Future<void> _loadBowls() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('bowls');
-    if (data != null) {
-      final list = jsonDecode(data) as List;
+    try {
+      final records = await pb.collection('bowls').getFullList(sort: 'created');
       if (mounted) {
         setState(() {
-          _bowls.addAll(list.map((e) => Bowl.fromJson(e as Map<String, dynamic>)));
+          _bowls.addAll(records.map((r) => Bowl.fromRecord(r)));
         });
       }
+      _subscribeToBowlChanges();
+    } catch (e) {
+      if (mounted) setState(() => _statusMessage = 'PocketBase error: $e');
     }
   }
 
-  Future<void> _saveBowls() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('bowls', jsonEncode(_bowls.map((b) => b.toJson()).toList()));
+  void _subscribeToBowlChanges() {
+    pb.collection('bowls').subscribe('*', (e) {
+      if (!mounted) return;
+      setState(() {
+        if (e.action == 'create' && e.record != null) {
+          final bowl = Bowl.fromRecord(e.record!);
+          if (!_bowls.any((b) => b.pbId == bowl.pbId)) {
+            _bowls.add(bowl);
+          }
+        } else if (e.action == 'delete' && e.record != null) {
+          _bowls.removeWhere((b) => b.pbId == e.record!.id);
+        } else if (e.action == 'update' && e.record != null) {
+          final idx = _bowls.indexWhere((b) => b.pbId == e.record!.id);
+          if (idx != -1) {
+            _bowls[idx].name = e.record!.getStringValue('name');
+          }
+        }
+      });
+    });
   }
+
+  Future<void> _addBowl(String id, String name) async {
+    if (_bowls.any((b) => b.id == id)) return;
+    try {
+      final record = await pb.collection('bowls').create(body: {'bowl_id': id, 'name': name});
+      if (mounted) setState(() => _bowls.add(Bowl.fromRecord(record)));
+    } catch (e) {
+      if (mounted) setState(() => _statusMessage = 'Failed to add bowl: $e');
+    }
+  }
+
+  Future<void> _removeBowl(String pbId) async {
+    try {
+      await pb.collection('bowls').delete(pbId);
+      if (mounted) setState(() => _bowls.removeWhere((b) => b.pbId == pbId));
+    } catch (e) {
+      if (mounted) setState(() => _statusMessage = 'Failed to remove bowl: $e');
+    }
+  }
+
+  // ── MQTT ───────────────────────────────────────────────────────────────────
 
   Future<void> _connect() async {
     _client = MqttBrowserClient('ws://$mqttHost', 'flutter_food_bowl');
@@ -149,7 +198,8 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
     final bowlId = parts[2];
 
     final message = rec.payload as MqttPublishMessage;
-    final payload = MqttPublishPayload.bytesToStringAsString(message.payload.message);
+    final payload =
+        MqttPublishPayload.bytesToStringAsString(message.payload.message);
 
     final idx = _bowls.indexWhere((b) => b.id == bowlId);
     if (idx == -1) return;
@@ -171,17 +221,6 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
       MqttQos.atLeastOnce,
       builder.payload!,
     );
-  }
-
-  void _addBowl(String id, String name) {
-    if (_bowls.any((b) => b.id == id)) return;
-    setState(() => _bowls.add(Bowl(id: id, name: name)));
-    _saveBowls();
-  }
-
-  void _removeBowl(String id) {
-    setState(() => _bowls.removeWhere((b) => b.id == id));
-    _saveBowls();
   }
 
   void _showAddBowlDialog() {
@@ -238,6 +277,7 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
 
   @override
   void dispose() {
+    pb.collection('bowls').unsubscribe();
     _client.disconnect();
     super.dispose();
   }
@@ -305,7 +345,7 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
                       enabled: _connected,
                       onOpen: () => _publish(_bowls[i].id, 'open'),
                       onClose: () => _publish(_bowls[i].id, 'close'),
-                      onRemove: () => _removeBowl(_bowls[i].id),
+                      onRemove: () => _removeBowl(_bowls[i].pbId),
                     ),
                   ),
                 ),
@@ -361,8 +401,7 @@ class _BowlCard extends StatelessWidget {
                       Text(bowl.name,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(label,
-                          style: TextStyle(color: color, fontSize: 13)),
+                      Text(label, style: TextStyle(color: color, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -379,12 +418,12 @@ class _BowlCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: enabled && bowl.lidState != LidState.open
-                        ? onOpen
-                        : null,
+                    onPressed:
+                        enabled && bowl.lidState != LidState.open ? onOpen : null,
                     icon: const Icon(Icons.lock_open_rounded),
                     label: const Text('Open'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                    style:
+                        FilledButton.styleFrom(backgroundColor: Colors.green),
                   ),
                 ),
                 const SizedBox(width: 12),
