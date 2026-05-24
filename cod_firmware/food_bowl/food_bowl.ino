@@ -3,19 +3,22 @@
 
   MQTT:
     Broker:    192.168.0.49:1883
-    Subscribe: foodbowl/door/set       payload: open | close | status
-    Publish:   foodbowl/door/status    payloads below, retained
-    Publish:   foodbowl/door/result    JSON command result, not retained
-    Publish:   foodbowl/door/availability  online | offline, retained
+    BOWL_ID is generated from the ESP32 WiFi MAC address.
+
+    Publish:   foodbowl/discovery/<BOWL_ID> retained JSON discovery payload
+    Subscribe: foodbowl/<BOWL_ID>/door/set       payload: open | close | status
+    Publish:   foodbowl/<BOWL_ID>/door/status    payloads below, retained
+    Publish:   foodbowl/<BOWL_ID>/door/result    JSON command result, not retained
+    Publish:   foodbowl/<BOWL_ID>/door/availability  online | offline, retained
 
   Hardware:
     DRV8833 / L298N style motor driver:
-      IN1 -> GPIO 25
-      IN2 -> GPIO 26
+      IN1 -> GPIO 16
+      IN2 -> GPIO 18
 
     Two A3144 Hall effect sensors:
-      OPEN sensor   -> GPIO 32
-      CLOSED sensor -> GPIO 33
+      OPEN sensor   -> GPIO 33
+      CLOSED sensor -> GPIO 35
 
     A3144 output is normally HIGH and goes LOW when the magnet is present.
     Use 3.3 V for the sensors and share ground with the ESP32 and motor driver.
@@ -37,10 +40,13 @@ const uint16_t MQTT_PORT = 1883;
 const char* MQTT_USERNAME = "";
 const char* MQTT_PASSWORD = "";
 
-const char* TOPIC_COMMAND = "foodbowl/door/set";
-const char* TOPIC_STATUS = "foodbowl/door/status";
-const char* TOPIC_RESULT = "foodbowl/door/result";
-const char* TOPIC_AVAILABILITY = "foodbowl/door/availability";
+char bowlId[24];
+char macAddress[18];
+char topicDiscovery[80];
+char topicCommand[80];
+char topicStatus[80];
+char topicResult[80];
+char topicAvailability[88];
 
 const uint8_t PIN_MOTOR_IN1 = 16;
 const uint8_t PIN_MOTOR_IN2 = 18;
@@ -68,11 +74,13 @@ enum MoveDirection {
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
 
-char clientId[32];
+char clientId[64];
 MoveDirection activeMove = MOVE_NONE;
 unsigned long moveStartedAt = 0;
 unsigned long openLowSince = 0;
 unsigned long closedLowSince = 0;
+
+void publishDiscovery();
 
 bool readActiveLowSensor(uint8_t pin, unsigned long& lowSince) {
   if (digitalRead(pin) == LOW) {
@@ -140,8 +148,8 @@ void motorClose() {
 }
 
 void publishStatus(const char* status) {
-  mqtt.publish(TOPIC_STATUS, status, true);
-  Serial.printf("[MQTT] publish %s = %s\n", TOPIC_STATUS, status);
+  mqtt.publish(topicStatus, status, true);
+  Serial.printf("[MQTT] publish %s = %s\n", topicStatus, status);
 }
 
 void publishCurrentPosition() {
@@ -160,8 +168,8 @@ void publishResult(const char* command, bool ok, const char* detail) {
     detail
   );
 
-  mqtt.publish(TOPIC_RESULT, payload, false);
-  Serial.printf("[MQTT] publish %s = %s\n", TOPIC_RESULT, payload);
+  mqtt.publish(topicResult, payload, false);
+  Serial.printf("[MQTT] publish %s = %s\n", topicResult, payload);
 }
 
 void startMove(MoveDirection direction) {
@@ -308,14 +316,14 @@ void ensureWiFi() {
 
 bool connectMqttWithOptionalAuth() {
   if (strlen(MQTT_USERNAME) == 0) {
-    return mqtt.connect(clientId, TOPIC_AVAILABILITY, 1, true, "offline");
+    return mqtt.connect(clientId, topicAvailability, 1, true, "offline");
   }
 
   return mqtt.connect(
     clientId,
     MQTT_USERNAME,
     MQTT_PASSWORD,
-    TOPIC_AVAILABILITY,
+    topicAvailability,
     1,
     true,
     "offline"
@@ -350,24 +358,74 @@ void ensureMqtt() {
   }
 
   Serial.println("[MQTT] connected");
-  mqtt.publish(TOPIC_AVAILABILITY, "online", true);
-  mqtt.subscribe(TOPIC_COMMAND, 1);
+  mqtt.publish(topicAvailability, "online", true);
+  publishDiscovery();
+  mqtt.subscribe(topicCommand, 1);
   publishCurrentPosition();
 }
 
-void buildClientId() {
+void buildTopics() {
+  snprintf(topicDiscovery, sizeof(topicDiscovery), "foodbowl/discovery/%s", bowlId);
+  snprintf(topicCommand, sizeof(topicCommand), "foodbowl/%s/door/set", bowlId);
+  snprintf(topicStatus, sizeof(topicStatus), "foodbowl/%s/door/status", bowlId);
+  snprintf(topicResult, sizeof(topicResult), "foodbowl/%s/door/result", bowlId);
+  snprintf(
+    topicAvailability,
+    sizeof(topicAvailability),
+    "foodbowl/%s/door/availability",
+    bowlId
+  );
+}
+
+void publishDiscovery() {
+  const String ipAddress = WiFi.localIP().toString();
+  char payload[192];
+  snprintf(
+    payload,
+    sizeof(payload),
+    "{\"bowl_id\":\"%s\",\"mac_address\":\"%s\",\"ip_address\":\"%s\"}",
+    bowlId,
+    macAddress,
+    ipAddress.c_str()
+  );
+
+  mqtt.publish(topicDiscovery, payload, true);
+  Serial.printf("[MQTT] publish %s = %s\n", topicDiscovery, payload);
+}
+
+void buildIdentity() {
   uint8_t mac[6];
   WiFi.macAddress(mac);
+
   snprintf(
-    clientId,
-    sizeof(clientId),
-    "foodbowl-%02x%02x%02x%02x%02x%02x",
+    macAddress,
+    sizeof(macAddress),
+    "%02x:%02x:%02x:%02x:%02x:%02x",
     mac[0],
     mac[1],
     mac[2],
     mac[3],
     mac[4],
     mac[5]
+  );
+
+  snprintf(
+    bowlId,
+    sizeof(bowlId),
+    "bowl-%02x%02x%02x%02x%02x%02x",
+    mac[0],
+    mac[1],
+    mac[2],
+    mac[3],
+    mac[4],
+    mac[5]
+  );
+
+  snprintf(
+    clientId,
+    sizeof(clientId),
+    "foodbowl-%s",
+    bowlId
   );
 }
 
@@ -383,7 +441,9 @@ void setup() {
   pinMode(PIN_HALL_CLOSED, INPUT_PULLUP);
 
   WiFi.mode(WIFI_STA);
-  buildClientId();
+  buildIdentity();
+  buildTopics();
+  Serial.printf("[FoodBowl] generated BOWL_ID = %s\n", bowlId);
   connectWiFiBlocking();
 
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
