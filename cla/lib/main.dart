@@ -131,6 +131,45 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
     }
   }
 
+  Future<void> _renameBowl(String pbId, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Bowl'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Name'),
+          textCapitalization: TextCapitalization.words,
+          autofocus: true,
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (newName == null || newName.isEmpty || newName == currentName) return;
+    try {
+      await pb.collection('bowls').update(pbId, body: {'name': newName});
+      if (mounted) {
+        setState(() {
+          final idx = _bowls.indexWhere((b) => b.pbId == pbId);
+          if (idx != -1) _bowls[idx].name = newName;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _statusMessage = 'Failed to rename bowl: $e');
+    }
+  }
+
   // ── MQTT ───────────────────────────────────────────────────────────────────
 
   Future<void> _connect() async {
@@ -362,6 +401,7 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
                       onOpen: () => _publish(_bowls[i].id, 'open'),
                       onClose: () => _publish(_bowls[i].id, 'close'),
                       onRemove: () => _removeBowl(_bowls[i].pbId),
+                      onRename: () => _renameBowl(_bowls[i].pbId, _bowls[i].name),
                     ),
                   ),
                 ),
@@ -383,6 +423,7 @@ class _BowlCard extends StatelessWidget {
     required this.onOpen,
     required this.onClose,
     required this.onRemove,
+    required this.onRename,
   });
 
   final Bowl bowl;
@@ -390,6 +431,7 @@ class _BowlCard extends StatelessWidget {
   final VoidCallback onOpen;
   final VoidCallback onClose;
   final VoidCallback onRemove;
+  final VoidCallback onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -420,6 +462,12 @@ class _BowlCard extends StatelessWidget {
                       Text(label, style: TextStyle(color: color, fontSize: 13)),
                     ],
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  color: Colors.grey,
+                  onPressed: onRename,
+                  tooltip: 'Rename bowl',
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
