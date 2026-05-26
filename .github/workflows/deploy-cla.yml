@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'cla/**'
+      - '!cla/android/**'
   workflow_dispatch:
 
 jobs:
