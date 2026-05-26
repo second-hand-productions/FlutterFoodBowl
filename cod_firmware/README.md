@@ -11,12 +11,13 @@ Install these in Arduino IDE:
 
 ## Configure
 
-Edit these values at the top of `food_bowl.ino` before flashing:
+Edit these values in `food_bowl/config.h` before flashing:
 
-- `WIFI_SSID`
-- `WIFI_PASSWORD`
-- `MQTT_HOST`
-- `MQTT_USERNAME` and `MQTT_PASSWORD`, if your broker requires auth
+- `kWiFiSsid`
+- `kWiFiPassword`
+- `kMqttHost`
+- `kMqttPort`
+- `kMqttUsername` and `kMqttPassword`, if your broker requires auth
 
 Each physical bowl gets an automatic `BOWL_ID` derived from the ESP32 WiFi MAC
 address, for example `bowl-aabbccddeeff`. Flash the same firmware to every
@@ -25,6 +26,11 @@ The Flutter app sees that message and creates the PocketBase `bowls` record
 automatically.
 
 ## MQTT
+
+The ESP32 firmware uses normal MQTT TCP, for example
+`192.168.0.49:1883`. The Flutter Android app uses that same TCP listener.
+Flutter web builds must use a Mosquitto WebSocket listener, for example
+`ws://192.168.0.49:9001`.
 
 The sketch matches the Flutter app's per-bowl topics:
 

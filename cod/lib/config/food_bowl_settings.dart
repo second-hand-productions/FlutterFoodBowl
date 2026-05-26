@@ -1,5 +1,21 @@
-const String brokerUri = 'ws://192.168.0.49:9001';
-const String pocketBaseUri = 'http://pocketbase.lan';
+const bool isBrowserBuild = bool.fromEnvironment('dart.library.js_interop');
+
+const String webBrokerUri = String.fromEnvironment(
+  'FOOD_BOWL_WEB_BROKER_URI',
+  defaultValue: 'ws://192.168.0.49:9001',
+);
+const String nativeBrokerUri = String.fromEnvironment(
+  'FOOD_BOWL_NATIVE_BROKER_URI',
+  defaultValue: 'mqtt://192.168.0.49:1883',
+);
+const String brokerUri = String.fromEnvironment(
+  'FOOD_BOWL_BROKER_URI',
+  defaultValue: isBrowserBuild ? webBrokerUri : nativeBrokerUri,
+);
+const String pocketBaseUri = String.fromEnvironment(
+  'FOOD_BOWL_POCKETBASE_URI',
+  defaultValue: 'http://pocketbase.lan',
+);
 const String bowlsCollection = 'bowls';
 const String discoveryTopicFilter = 'foodbowl/discovery/+';
 

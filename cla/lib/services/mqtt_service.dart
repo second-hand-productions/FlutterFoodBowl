@@ -1,10 +1,10 @@
 import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqtt_client/mqtt_browser_client.dart';
 import '../config.dart';
+import '../mqtt_client_factory.dart';
 import '../models/bowl.dart';
 
 class MqttService {
-  late MqttBrowserClient _client;
+  late MqttClient _client;
   bool connected = false;
 
   void Function(bool connected, String message)? onStatusChanged;
@@ -13,8 +13,7 @@ class MqttService {
 
   Future<void> connect() async {
     final clientId = 'flutter_food_bowl_${DateTime.now().millisecondsSinceEpoch}';
-    _client = MqttBrowserClient('ws://$mqttHost', clientId);
-    _client.port = mqttPort;
+    _client = createMqttClient(mqttHost, clientId);
     _client.keepAlivePeriod = 30;
     _client.onDisconnected = _onDisconnected;
     _client.onConnected = _onConnected;

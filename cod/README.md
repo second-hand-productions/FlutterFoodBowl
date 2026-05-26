@@ -2,6 +2,26 @@
 
 Flutter MQTT controller for one or more ESP32 food bowl doors.
 
+## Android build
+
+Native builds use the Mosquitto TCP listener by default:
+
+```powershell
+flutter build apk
+```
+
+The default endpoints can be overridden at build time:
+
+```powershell
+flutter build apk `
+  --dart-define=FOOD_BOWL_NATIVE_BROKER_URI=mqtt://192.168.0.49:1883 `
+  --dart-define=FOOD_BOWL_POCKETBASE_URI=http://pocketbase.lan
+```
+
+Flutter web builds use the WebSocket listener by default:
+`ws://192.168.0.49:9001`. To override both platforms with one value, pass
+`--dart-define=FOOD_BOWL_BROKER_URI=...`.
+
 ## Bowls
 
 The app loads configured bowls from PocketBase. When a new ESP32 bowl boots, it

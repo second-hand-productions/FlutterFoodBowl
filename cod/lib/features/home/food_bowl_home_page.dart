@@ -71,7 +71,6 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
 
     final clientId = 'food_bowl_app_${DateTime.now().millisecondsSinceEpoch}';
     final client = createMqttClient(brokerUri, clientId);
-    client.websocketProtocols = MqttClientConstants.protocolsSingleDefault;
     client.keepAlivePeriod = 20;
     client.autoReconnect = true;
     client.onConnected = _handleConnected;
@@ -86,7 +85,7 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
         .withWillQos(MqttQos.atLeastOnce);
 
     try {
-      await client.connect();
+      await client.connect().timeout(const Duration(seconds: 10));
     } on Exception catch (error) {
       client.disconnect();
       _setError('Connection failed: $error');

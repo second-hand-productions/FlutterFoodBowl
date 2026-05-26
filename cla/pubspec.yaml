@@ -32,8 +32,8 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  mqtt_client: ^10.5.0
-  pocketbase: ^0.21.0
+  mqtt_client: ^10.8.0
+  pocketbase: ^0.22.0
 
 dev_dependencies:
   flutter_test:

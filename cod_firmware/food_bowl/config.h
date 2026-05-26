@@ -7,8 +7,9 @@
 static constexpr const char* kWiFiSsid = "TP-Link_14DC";
 static constexpr const char* kWiFiPassword = "28760795";
 
-// Mosquitto TCP listener. The Flutter web app uses ws://192.168.0.49:9001,
-// but ESP32 PubSubClient connects to the normal MQTT TCP port.
+// Mosquitto TCP listener. ESP32 firmware and Flutter Android/native builds use
+// this port. Flutter web builds use the broker's WebSocket listener, typically
+// ws://192.168.0.49:9001, because browsers cannot open raw MQTT TCP sockets.
 static constexpr const char* kMqttHost = "192.168.0.49";
 static constexpr uint16_t kMqttPort = 1883;
 static constexpr const char* kMqttUsername = "";
