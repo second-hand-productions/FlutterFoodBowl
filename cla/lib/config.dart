@@ -7,10 +7,11 @@ const String topicPrefix = 'home/foodbowl';
 // The web build ignores this and connects same-origin via nginx (/mqtt).
 const String mqttHost = 'mqtt.tailb99a87.ts.net';
 
-// Web uses a same-origin path (proxied by nginx to PocketBase) so one build
-// works on the LAN (http://cla.lan) and remotely over Tailscale.
-// Native builds talk to PocketBase over Tailscale directly.
-final String pbUrl =
-    kIsWeb ? '${Uri.base.origin}/pb' : 'https://ubuntuserver.tailb99a87.ts.net';
+// PocketBase is reached through nginx under the /pb prefix on both platforms.
+// Web uses the same origin that served the app (works on the LAN and over
+// Tailscale); native targets the Tailscale name directly. nginx strips /pb/.
+final String pbUrl = kIsWeb
+    ? '${Uri.base.origin}/pb'
+    : 'https://ubuntuserver.tailb99a87.ts.net/pb';
 
 final pb = PocketBase(pbUrl);
