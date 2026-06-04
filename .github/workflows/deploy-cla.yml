@@ -26,7 +26,7 @@ jobs:
 
       - name: Build web
         working-directory: cla
-        run: flutter build web --release
+        run: flutter build web --release --base-href=/cla/
 
       - name: Deploy
         run: |
