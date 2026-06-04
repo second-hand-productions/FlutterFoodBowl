@@ -13,7 +13,7 @@ class MqttService {
 
   Future<void> connect() async {
     final clientId = 'flutter_food_bowl_${DateTime.now().millisecondsSinceEpoch}';
-    _client = createMqttClient(mqttHost, clientId);
+    _client = createMqttClient(mqttWsUrl, clientId);
     _client.keepAlivePeriod = 30;
     _client.onDisconnected = _onDisconnected;
     _client.onConnected = _onConnected;

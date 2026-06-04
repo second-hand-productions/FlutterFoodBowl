@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'config.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initBackend();
   runApp(const FoodBowlApp());
 }
 
