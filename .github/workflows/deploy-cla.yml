@@ -29,19 +29,7 @@ jobs:
         run: flutter build web --release
 
       - name: Deploy
-        run: |
-          sudo mkdir -p /var/www/cla
-          sudo rsync -a --delete cla/build/web/ /var/www/cla/
-
-      - name: Install nginx config
-        run: |
-          sudo cp cla/deploy/cla.nginx.conf /etc/nginx/sites-available/cla
-          sudo ln -sf /etc/nginx/sites-available/cla /etc/nginx/sites-enabled/cla
-          # The unified cla vhost now owns the Tailscale server_name, so the
-          # old single-purpose tailscale vhost must be disabled to avoid a
-          # conflicting server_name on port 80.
-          sudo rm -f /etc/nginx/sites-enabled/tailscale
-          # Validate before reloading; a bad config aborts the step (set -e)
-          # and leaves the running nginx untouched.
-          sudo nginx -t
-          sudo systemctl reload nginx
+        # Single privileged action, allowed via one NOPASSWD sudoers rule.
+        # The script publishes the web build and installs/reloads the vhost.
+        # See cla/deploy/README.md for the one-time server setup.
+        run: sudo /usr/local/sbin/deploy-cla-nginx.sh "$PWD/cla/build/web" "$PWD/cla/deploy/cla.nginx.conf"
