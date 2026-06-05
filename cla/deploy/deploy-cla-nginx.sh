@@ -11,8 +11,8 @@
 # copy it into place manually whenever it changes. See cla/deploy/README.md.
 #
 # Args are treated strictly as file paths (quoted, no eval), so a hostile value
-# can at worst fail or scope a bad deploy to the cla site -- it cannot run
-# arbitrary root commands.
+# can at worst fail or install a bad nginx config -- it cannot run arbitrary
+# root commands.
 set -euo pipefail
 
 WEB_SRC="${1:?usage: deploy-cla-nginx.sh <web_build_dir> <nginx_conf>}"
@@ -22,12 +22,13 @@ NGINX_CONF="${2:?usage: deploy-cla-nginx.sh <web_build_dir> <nginx_conf>}"
 mkdir -p /var/www/cla
 rsync -a --delete "${WEB_SRC%/}/" /var/www/cla/
 
-# Install the unified vhost (serves cla.lan + the Tailscale name at /).
-install -o root -g root -m 0644 "$NGINX_CONF" /etc/nginx/sites-available/cla
-ln -sf /etc/nginx/sites-available/cla /etc/nginx/sites-enabled/cla
+# Install the shared vhost (root owned by nginx, apps served by path).
+install -o root -g root -m 0644 "$NGINX_CONF" /etc/nginx/sites-available/foodbowl
+ln -sf /etc/nginx/sites-available/foodbowl /etc/nginx/sites-enabled/foodbowl
 
-# The old single-purpose Tailscale vhost is superseded by the unified one; remove
-# it so it can't conflict on the shared server_name. Idempotent.
+# Remove legacy per-app/shared vhosts so they cannot conflict on server_name.
+rm -f /etc/nginx/sites-enabled/cla
+rm -f /etc/nginx/sites-enabled/cod
 rm -f /etc/nginx/sites-enabled/tailscale
 
 # Validate before reloading. On failure, set -e aborts here and the running

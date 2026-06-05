@@ -6,6 +6,7 @@ on:
     paths:
       - 'cla/**'
       - '!cla/android/**'
+      - 'deploy/**'
   workflow_dispatch:
 
 jobs:
@@ -26,10 +27,10 @@ jobs:
 
       - name: Build web
         working-directory: cla
-        run: flutter build web --release
+        run: flutter build web --release --base-href /cla/
 
       - name: Deploy
         # Single privileged action, allowed via one NOPASSWD sudoers rule.
         # The script publishes the web build and installs/reloads the vhost.
         # See cla/deploy/README.md for the one-time server setup.
-        run: sudo /usr/local/sbin/deploy-cla-nginx.sh "$PWD/cla/build/web" "$PWD/cla/deploy/cla.nginx.conf"
+        run: sudo /usr/local/sbin/deploy-cla-nginx.sh "$PWD/cla/build/web" "$PWD/deploy/foodbowl.nginx.conf"

@@ -19,7 +19,7 @@ MqttClient createMqttClient(String brokerUri, String clientId) {
           ? uri.port
           : scheme == 'wss'
           ? 443
-          : 9001;
+          : 80;
 
   final client = MqttBrowserClient.withPort(uri.toString(), clientId, port);
   client.websocketProtocols = MqttClientConstants.protocolsSingleDefault;

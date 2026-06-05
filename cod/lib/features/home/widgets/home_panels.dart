@@ -37,9 +37,9 @@ class ConnectionPanel extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            const _BrokerDetail(label: 'Endpoint', value: brokerUri),
+            _BrokerDetail(label: 'Endpoint', value: brokerUri),
             const SizedBox(height: 8),
-            const _BrokerDetail(label: 'PocketBase', value: pocketBaseUri),
+            _BrokerDetail(label: 'PocketBase', value: pocketBaseUri),
             const SizedBox(height: 8),
             const _BrokerDetail(
               label: 'Topic pattern',

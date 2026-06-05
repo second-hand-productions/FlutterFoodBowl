@@ -23,6 +23,7 @@ class FoodBowlApp extends StatelessWidget {
       title: 'Food Bowl',
       theme: ThemeData(
         colorScheme: colorScheme,
+        splashFactory: InkRipple.splashFactory,
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),

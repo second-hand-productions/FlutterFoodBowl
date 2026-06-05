@@ -6,6 +6,7 @@ on:
     paths:
       - 'cod/**'
       - '!cod/android/**'
+      - 'deploy/**'
   workflow_dispatch:
 
 jobs:
@@ -26,9 +27,10 @@ jobs:
 
       - name: Build web
         working-directory: cod
-        run: flutter build web --release
+        run: flutter build web --release --base-href /cod/
 
       - name: Deploy
-        run: |
-          sudo mkdir -p /var/www/cod
-          sudo rsync -a --delete cod/build/web/ /var/www/cod/
+        # Single privileged action, allowed via one NOPASSWD sudoers rule.
+        # The script publishes the web build and installs/reloads the vhost.
+        # See cod/deploy/README.md for the one-time server setup.
+        run: sudo /usr/local/sbin/deploy-cod-nginx.sh "$PWD/cod/build/web" "$PWD/deploy/foodbowl.nginx.conf"

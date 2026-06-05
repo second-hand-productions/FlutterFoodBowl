@@ -4,23 +4,35 @@ Flutter MQTT controller for one or more ESP32 food bowl doors.
 
 ## Android build
 
-Native builds use the Mosquitto TCP listener by default:
+Native builds use the nginx front door by default. The app probes the LAN host
+first (`http://cod.lan` / `ws://cod.lan`) and falls back to Tailscale
+(`https://ubuntuserver.tailb99a87.ts.net` / `wss://ubuntuserver.tailb99a87.ts.net`):
 
 ```powershell
 flutter build apk
 ```
 
-The default endpoints can be overridden at build time:
+The default hosts can be overridden at build time:
 
 ```powershell
 flutter build apk `
-  --dart-define=FOOD_BOWL_NATIVE_BROKER_URI=mqtt://192.168.0.49:1883 `
-  --dart-define=FOOD_BOWL_POCKETBASE_URI=http://pocketbase.lan
+  --dart-define=FOOD_BOWL_LAN_HOST=cod.lan `
+  --dart-define=FOOD_BOWL_TAILNET_HOST=ubuntuserver.tailb99a87.ts.net
 ```
 
-Flutter web builds use the WebSocket listener by default:
-`ws://192.168.0.49:9001`. To override both platforms with one value, pass
-`--dart-define=FOOD_BOWL_BROKER_URI=...`.
+Flutter web builds inherit the origin that served the page. Open the same build
+at `http://cod.lan/cod/` on the local subnet or
+`https://ubuntuserver.tailb99a87.ts.net/cod/` over Tailscale; the app will use
+same-origin `/pb` for PocketBase and `/mqtt` for MQTT WebSockets. nginx owns
+the shared root and serves both apps by path.
+
+For one-off builds, you can still override direct endpoints:
+
+```powershell
+flutter build apk `
+  --dart-define=FOOD_BOWL_BROKER_URI=wss://ubuntuserver.tailb99a87.ts.net/mqtt `
+  --dart-define=FOOD_BOWL_POCKETBASE_URI=https://ubuntuserver.tailb99a87.ts.net/pb
+```
 
 ## Bowls
 
@@ -33,8 +45,8 @@ printed by the ESP32 firmware serial monitor. It is derived from the ESP32 WiFi
 MAC address, for example `bowl-aabbccddeeff`. Use 32 characters or fewer with
 letters, numbers, `_`, or `-`.
 
-Configured bowls are saved in PocketBase at `http://pocketbase.lan` in the
-`bowls` collection. The app expects these fields:
+Configured bowls are saved in PocketBase through nginx at `/pb` in the `bowls`
+collection. The app expects these fields:
 
 - `bowl_id`
 - `name`

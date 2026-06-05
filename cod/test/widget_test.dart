@@ -15,7 +15,7 @@ void main() {
     );
 
     expect(find.text('Mosquitto Broker'), findsOneWidget);
-    expect(find.text('mqtt://192.168.0.49:1883'), findsOneWidget);
+    expect(find.text('ws://cod.lan/mqtt'), findsOneWidget);
     expect(find.text('No bowls added'), findsOneWidget);
     expect(find.text('Reconnect'), findsOneWidget);
 
