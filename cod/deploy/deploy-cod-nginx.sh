@@ -21,6 +21,7 @@ ln -sf /etc/nginx/sites-available/foodbowl /etc/nginx/sites-enabled/foodbowl
 
 rm -f /etc/nginx/sites-enabled/cla
 rm -f /etc/nginx/sites-enabled/cod
+rm -f /etc/nginx/sites-enabled/default
 rm -f /etc/nginx/sites-enabled/tailscale
 
 nginx -t

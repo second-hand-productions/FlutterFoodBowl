@@ -29,6 +29,7 @@ ln -sf /etc/nginx/sites-available/foodbowl /etc/nginx/sites-enabled/foodbowl
 # Remove legacy per-app/shared vhosts so they cannot conflict on server_name.
 rm -f /etc/nginx/sites-enabled/cla
 rm -f /etc/nginx/sites-enabled/cod
+rm -f /etc/nginx/sites-enabled/default
 rm -f /etc/nginx/sites-enabled/tailscale
 
 # Validate before reloading. On failure, set -e aborts here and the running

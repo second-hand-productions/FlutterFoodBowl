@@ -16,7 +16,10 @@ sudo tailscale serve --bg https / http://127.0.0.1:80
 
 The app-specific deploy scripts install this same config to
 `/etc/nginx/sites-available/foodbowl`, enable it, remove the legacy per-app
-enabled sites, validate nginx, and reload.
+enabled sites plus the stock nginx `default` site, validate nginx, and reload.
+The vhost also includes the Ubuntu server's Tailscale IP in `server_name` so
+direct Tailscale-IP URLs work when MagicDNS is unavailable, for example
+`http://100.95.188.96/cod/`.
 
 ## One-time server setup
 
