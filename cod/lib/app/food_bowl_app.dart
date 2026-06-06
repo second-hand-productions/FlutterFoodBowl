@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 
 import 'package:cod/features/home/food_bowl_home_page.dart';
+import 'package:cod/services/bowls/bowl_repository.dart';
+import 'package:cod/services/mqtt/mqtt_client_factory.dart';
 
 class FoodBowlApp extends StatelessWidget {
   const FoodBowlApp({
     super.key,
     this.autoConnect = true,
     this.usePocketBase = true,
+    this.bowlRepository,
+    this.mqttClientFactory,
   });
 
   final bool autoConnect;
   final bool usePocketBase;
+  final BowlRepository? bowlRepository;
+  final MqttClientFactory? mqttClientFactory;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +38,8 @@ class FoodBowlApp extends StatelessWidget {
       home: FoodBowlHomePage(
         autoConnect: autoConnect,
         usePocketBase: usePocketBase,
+        bowlRepository: bowlRepository,
+        mqttClientFactory: mqttClientFactory,
       ),
     );
   }

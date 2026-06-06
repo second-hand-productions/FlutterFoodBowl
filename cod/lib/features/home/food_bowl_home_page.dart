@@ -9,17 +9,23 @@ import 'package:cod/config/food_bowl_settings.dart';
 import 'package:cod/features/home/widgets/bowl_dialogs.dart';
 import 'package:cod/features/home/widgets/home_panels.dart';
 import 'package:cod/models/bowl_models.dart';
-import 'package:cod/mqtt_client_factory.dart';
+import 'package:cod/services/bowls/bowl_repository.dart';
+import 'package:cod/services/mqtt/mqtt_client_factory.dart';
+import 'package:cod/services/mqtt/mqtt_topics.dart';
 
 class FoodBowlHomePage extends StatefulWidget {
   const FoodBowlHomePage({
     super.key,
     this.autoConnect = true,
     this.usePocketBase = true,
+    this.bowlRepository,
+    this.mqttClientFactory,
   });
 
   final bool autoConnect;
   final bool usePocketBase;
+  final BowlRepository? bowlRepository;
+  final MqttClientFactory? mqttClientFactory;
 
   @override
   State<FoodBowlHomePage> createState() => _FoodBowlHomePageState();
@@ -29,7 +35,10 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
   final List<FoodBowlConfig> _foodBowls = [];
   final Map<String, BowlRuntimeState> _bowlStates = {};
   final Set<String> _pendingDiscoveryBowlIds = {};
-  late final PocketBase _pb = PocketBase(pocketBaseUri);
+  late final BowlRepository _bowlRepository =
+      widget.bowlRepository ?? PocketBaseBowlRepository();
+  late final MqttClientFactory _mqttClientFactory =
+      widget.mqttClientFactory ?? createMqttClient;
 
   MqttClient? _client;
   StreamSubscription<List<MqttReceivedMessage<MqttMessage>>>? _subscription;
@@ -70,7 +79,7 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     _client?.disconnect();
 
     final clientId = 'food_bowl_app_${DateTime.now().millisecondsSinceEpoch}';
-    final client = createMqttClient(brokerUri, clientId);
+    final client = _mqttClientFactory(brokerUri, clientId);
     client.keepAlivePeriod = 20;
     client.autoReconnect = true;
     client.onConnected = _handleConnected;
@@ -291,19 +300,8 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
         });
 
         try {
-          final existingRecord = await _findBowlRecord(bowl.id);
-          if (existingRecord != null) {
-            savedBowl = FoodBowlConfig.fromRecord(existingRecord);
-          } else {
-            final body = <String, dynamic>{
-              'bowl_id': bowl.id,
-              'name': bowl.name,
-            };
-            final record = await _pb
-                .collection(bowlsCollection)
-                .create(body: body, files: []);
-            savedBowl = bowl.copyWith(recordId: record.id);
-          }
+          final existingBowl = await _bowlRepository.findBowl(bowl.id);
+          savedBowl = existingBowl ?? await _bowlRepository.createBowl(bowl);
         } on ClientException catch (error) {
           _setError('PocketBase discovery create failed: ${error.response}');
           return;
@@ -336,13 +334,6 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     return 'Food Bowl $suffix';
   }
 
-  Future<RecordModel?> _findBowlRecord(String bowlId) async {
-    final result = await _pb
-        .collection(bowlsCollection)
-        .getList(page: 1, perPage: 1, filter: 'bowl_id = "$bowlId"');
-    return result.items.isEmpty ? null : result.items.first;
-  }
-
   Future<void> _loadBowls() async {
     setState(() {
       _isLoadingBowls = true;
@@ -350,12 +341,8 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     });
 
     try {
-      final records = await _pb
-          .collection(bowlsCollection)
-          .getFullList(sort: 'name');
       final bowls =
-          records
-              .map(FoodBowlConfig.fromRecord)
+          (await _bowlRepository.loadBowls())
               .where((bowl) => isValidBowlId(bowl.id))
               .toList();
 
@@ -429,11 +416,7 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
       });
 
       try {
-        final body = <String, dynamic>{'bowl_id': bowl.id, 'name': bowl.name};
-        final record = await _pb
-            .collection(bowlsCollection)
-            .create(body: body, files: []);
-        savedBowl = bowl.copyWith(recordId: record.id);
+        savedBowl = await _bowlRepository.createBowl(bowl);
       } on ClientException catch (error) {
         _setError('PocketBase create failed: ${error.response}');
         return;
@@ -463,7 +446,7 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
       });
 
       try {
-        await _pb.collection(bowlsCollection).delete(bowl.recordId!);
+        await _bowlRepository.deleteBowl(bowl);
       } on ClientException catch (error) {
         _setError('PocketBase delete failed: ${error.response}');
         return;
@@ -502,16 +485,13 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
       });
 
       try {
-        final recordId = bowl.recordId ?? (await _findBowlRecord(bowl.id))?.id;
-        if (recordId == null) {
+        final renamedBowl = await _bowlRepository.renameBowl(bowl, newName);
+        if (renamedBowl == null) {
           _setError('PocketBase record not found for ${bowl.id}.');
           return;
         }
 
-        final record = await _pb
-            .collection(bowlsCollection)
-            .update(recordId, body: {'name': newName});
-        updatedBowl = FoodBowlConfig.fromRecord(record);
+        updatedBowl = renamedBowl;
       } on ClientException catch (error) {
         _setError('PocketBase rename failed: ${error.response}');
         return;

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cod/main.dart';
+import 'package:cod/models/bowl_models.dart';
+import 'package:cod/services/bowls/bowl_repository.dart';
 
 void main() {
   testWidgets('adds bowl controls from the UI', (tester) async {
@@ -42,4 +44,65 @@ void main() {
     expect(find.text('Pantry'), findsOneWidget);
     expect(find.text('Kitchen'), findsNothing);
   });
+
+  testWidgets('loads bowls from injected repository', (tester) async {
+    await tester.pumpWidget(
+      FoodBowlApp(
+        autoConnect: false,
+        bowlRepository: FakeBowlRepository([
+          const FoodBowlConfig(
+            recordId: 'record-kitchen',
+            id: 'kitchen',
+            name: 'Kitchen',
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kitchen'), findsOneWidget);
+  });
+}
+
+class FakeBowlRepository implements BowlRepository {
+  FakeBowlRepository(this.bowls);
+
+  final List<FoodBowlConfig> bowls;
+
+  @override
+  Future<List<FoodBowlConfig>> loadBowls() async => bowls;
+
+  @override
+  Future<FoodBowlConfig?> findBowl(String bowlId) async {
+    for (final bowl in bowls) {
+      if (bowl.id == bowlId) {
+        return bowl;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<FoodBowlConfig> createBowl(FoodBowlConfig bowl) async {
+    final savedBowl = bowl.copyWith(recordId: 'record-${bowl.id}');
+    bowls.add(savedBowl);
+    return savedBowl;
+  }
+
+  @override
+  Future<void> deleteBowl(FoodBowlConfig bowl) async {
+    bowls.removeWhere((savedBowl) => savedBowl.id == bowl.id);
+  }
+
+  @override
+  Future<FoodBowlConfig?> renameBowl(FoodBowlConfig bowl, String name) async {
+    for (var index = 0; index < bowls.length; index += 1) {
+      if (bowls[index].id == bowl.id) {
+        final renamedBowl = bowls[index].copyWith(name: name);
+        bowls[index] = renamedBowl;
+        return renamedBowl;
+      }
+    }
+    return null;
+  }
 }

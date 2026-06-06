@@ -34,7 +34,6 @@ String pocketBaseUri = _configuredPocketBaseUri.ifNotEmpty(
   'http://$lanBackendHost/pb',
 );
 const String bowlsCollection = 'bowls';
-const String discoveryTopicFilter = 'foodbowl/discovery/+';
 
 Future<void> initFoodBowlSettings() async {
   final brokerOverride = _configuredBrokerUri.ifNotEmpty(
@@ -73,17 +72,6 @@ Future<void> initFoodBowlSettings() async {
   if (!hasBrokerOverride) {
     brokerUri = '${_withoutTrailingSlash(webSocketBaseUri)}/mqtt';
   }
-}
-
-String commandTopicFor(String bowlId) => 'foodbowl/$bowlId/door/set';
-String statusTopicFor(String bowlId) => 'foodbowl/$bowlId/door/status';
-String resultTopicFor(String bowlId) => 'foodbowl/$bowlId/door/result';
-String availabilityTopicFor(String bowlId) =>
-    'foodbowl/$bowlId/door/availability';
-
-bool isDiscoveryTopic(String topic) {
-  final parts = topic.split('/');
-  return parts.length == 3 && parts[0] == 'foodbowl' && parts[1] == 'discovery';
 }
 
 bool isValidBowlId(String id) {

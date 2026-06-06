@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cod/config/food_bowl_settings.dart';
 import 'package:cod/models/bowl_models.dart';
+import 'package:cod/services/mqtt/mqtt_topics.dart';
 
 class ConnectionPanel extends StatelessWidget {
   const ConnectionPanel({
