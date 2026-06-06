@@ -1,21 +1,22 @@
-import 'package:pocketbase/pocketbase.dart';
+import 'platform/backend_resolver_io.dart'
+    if (dart.library.js_interop) 'platform/backend_resolver_web.dart' as resolver;
 
-import 'backend_resolver_io.dart'
-    if (dart.library.js_interop) 'backend_resolver_web.dart' as resolver;
-
+/// MQTT topic namespace shared by every bowl: `home/foodbowl/<bowlId>/<action>`.
 const String topicPrefix = 'home/foodbowl';
 
-// Set by [initBackend] before the app starts. Both services are reached through
-// the same nginx front door: PocketBase under /pb, MQTT (WebSocket) under /mqtt.
-late String pbUrl;
-late String mqttWsUrl;
-late PocketBase pb;
+/// Resolved backend endpoints for the reachable nginx front door. Both services
+/// are reached through the same nginx: PocketBase under `/pb`, MQTT (WebSocket)
+/// under `/mqtt`.
+class AppConfig {
+  const AppConfig({required this.pbUrl, required this.mqttWsUrl});
 
-/// Resolves which nginx endpoint to use (LAN vs Tailscale) and wires up the
-/// PocketBase client and MQTT WebSocket URL. Call once, before `runApp`.
-Future<void> initBackend() async {
+  final String pbUrl;
+  final String mqttWsUrl;
+}
+
+/// Resolves which nginx endpoint to use (LAN vs Tailscale) and builds the
+/// per-service URLs. Call once at startup, before constructing the services.
+Future<AppConfig> loadConfig() async {
   final (httpBase, wsBase) = await resolver.resolveBackend();
-  pbUrl = '$httpBase/pb';
-  mqttWsUrl = '$wsBase/mqtt';
-  pb = PocketBase(pbUrl);
+  return AppConfig(pbUrl: '$httpBase/pb', mqttWsUrl: '$wsBase/mqtt');
 }

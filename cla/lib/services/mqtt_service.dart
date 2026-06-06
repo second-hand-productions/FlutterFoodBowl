@@ -1,9 +1,24 @@
 import 'package:mqtt_client/mqtt_client.dart';
-import '../config.dart';
-import '../mqtt_client_factory.dart';
+import '../config.dart' as config;
+import '../platform/mqtt_client_factory.dart';
 import '../models/bowl.dart';
 
+/// Builds an [MqttClient] for [wsUrl] and [clientId]. Injectable so tests can
+/// supply a fake transport instead of a real WebSocket client.
+typedef MqttClientFactory = MqttClient Function(String wsUrl, String clientId);
+
 class MqttService {
+  MqttService({
+    required this.wsUrl,
+    this.topicPrefix = config.topicPrefix,
+    MqttClientFactory clientFactory = createMqttClient,
+  }) : _clientFactory = clientFactory;
+
+  /// Full WebSocket URL including the `/mqtt` path, e.g. `ws://cla.lan/mqtt`.
+  final String wsUrl;
+  final String topicPrefix;
+  final MqttClientFactory _clientFactory;
+
   late MqttClient _client;
   bool connected = false;
 
@@ -12,8 +27,9 @@ class MqttService {
   void Function(String bowlId)? onAnnounce;
 
   Future<void> connect() async {
-    final clientId = 'flutter_food_bowl_${DateTime.now().millisecondsSinceEpoch}';
-    _client = createMqttClient(mqttWsUrl, clientId);
+    final clientId =
+        'flutter_food_bowl_${DateTime.now().millisecondsSinceEpoch}';
+    _client = _clientFactory(wsUrl, clientId);
     _client.keepAlivePeriod = 30;
     _client.onDisconnected = _onDisconnected;
     _client.onConnected = _onConnected;
@@ -60,13 +76,19 @@ class MqttService {
 
   void _onMessage(List<MqttReceivedMessage<MqttMessage?>> messages) {
     final rec = messages.first;
-    final parts = rec.topic.split('/');
+    final payload = MqttPublishPayload.bytesToStringAsString(
+        (rec.payload as MqttPublishMessage).payload.message);
+    handleMessage(rec.topic, payload);
+  }
+
+  /// Routes a decoded broker message — [topic] plus its string [payload] — to
+  /// the matching callback. Split out from [_onMessage] so the routing logic
+  /// can be unit-tested without a live MQTT connection.
+  void handleMessage(String topic, String payload) {
+    final parts = topic.split('/');
     if (parts.length < 4) return;
     final bowlId = parts[2];
     final action = parts[3];
-
-    final payload = MqttPublishPayload.bytesToStringAsString(
-        (rec.payload as MqttPublishMessage).payload.message);
 
     if (action == 'announce') {
       onAnnounce?.call(bowlId);

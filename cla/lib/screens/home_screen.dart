@@ -5,15 +5,22 @@ import '../services/bowl_service.dart';
 import '../widgets/bowl_card.dart';
 
 class FoodBowlHome extends StatefulWidget {
-  const FoodBowlHome({super.key});
+  const FoodBowlHome({
+    super.key,
+    required this.bowlService,
+    required this.mqttService,
+  });
+
+  final BowlService bowlService;
+  final MqttService mqttService;
 
   @override
   State<FoodBowlHome> createState() => _FoodBowlHomeState();
 }
 
 class _FoodBowlHomeState extends State<FoodBowlHome> {
-  final _mqtt = MqttService();
-  final _bowlService = BowlService();
+  late final MqttService _mqtt = widget.mqttService;
+  late final BowlService _bowlService = widget.bowlService;
 
   bool _connected = false;
   String _statusMessage = 'Connecting…';

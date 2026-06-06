@@ -1,9 +1,13 @@
-import '../config.dart';
+import 'package:pocketbase/pocketbase.dart';
 import '../models/bowl.dart';
 
 class BowlService {
+  BowlService(this._pb);
+
+  final PocketBase _pb;
+
   Future<List<Bowl>> loadBowls() async {
-    final records = await pb.collection('bowls').getFullList(sort: 'created');
+    final records = await _pb.collection('bowls').getFullList(sort: 'created');
     return records.map(Bowl.fromRecord).toList();
   }
 
@@ -12,7 +16,7 @@ class BowlService {
     required void Function(String pbId) onDelete,
     required void Function(String pbId, String name) onUpdate,
   }) {
-    pb.collection('bowls').subscribe('*', (e) {
+    _pb.collection('bowls').subscribe('*', (e) {
       if (e.record == null) return;
       if (e.action == 'create') {
         onCreate(Bowl.fromRecord(e.record!));
@@ -25,17 +29,16 @@ class BowlService {
   }
 
   Future<Bowl> addBowl(String id, String name) async {
-    final record = await pb
+    final record = await _pb
         .collection('bowls')
         .create(body: {'bowl_id': id, 'name': name});
     return Bowl.fromRecord(record);
   }
 
-  Future<void> removeBowl(String pbId) =>
-      pb.collection('bowls').delete(pbId);
+  Future<void> removeBowl(String pbId) => _pb.collection('bowls').delete(pbId);
 
   Future<void> renameBowl(String pbId, String newName) =>
-      pb.collection('bowls').update(pbId, body: {'name': newName});
+      _pb.collection('bowls').update(pbId, body: {'name': newName});
 
-  void unsubscribe() => pb.collection('bowls').unsubscribe();
+  void unsubscribe() => _pb.collection('bowls').unsubscribe();
 }
