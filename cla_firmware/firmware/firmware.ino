@@ -23,14 +23,19 @@
  */
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <string.h>
 #include "config.h"
 #include "motor.h"
 
 // ── Bowl identity ─────────────────────────────────────────────────────────────
 static char g_bowlId[13];         // 12 hex chars + null  e.g. "a4cf123456ab"
+static char g_canonicalBowlId[18]; // "bowl-" + 12 hex chars + null
 static char g_cmdTopic[64];
 static char g_statusTopic[64];
 static char g_announceTopic[64];
+static char g_canonicalCmdTopic[80];
+static char g_canonicalStatusTopic[80];
+static char g_canonicalDiscoveryTopic[80];
 
 // ── MQTT client ───────────────────────────────────────────────────────────────
 static WiFiClient   s_wifiClient;
@@ -40,11 +45,22 @@ static PubSubClient s_mqtt(s_wifiClient);
 
 void publishStatus(const char* status) {
   s_mqtt.publish(g_statusTopic, status, /*retained=*/true);
+  s_mqtt.publish(g_canonicalStatusTopic, status, /*retained=*/true);
   Serial.printf("[MQTT] %s → %s\n", g_statusTopic, status);
 }
 
 void publishAnnounce() {
   s_mqtt.publish(g_announceTopic, g_bowlId, /*retained=*/true);
+  char payload[128];
+  const String ipAddress = WiFi.localIP().toString();
+  snprintf(
+    payload,
+    sizeof(payload),
+    "{\"bowl_id\":\"%s\",\"ip_address\":\"%s\"}",
+    g_canonicalBowlId,
+    ipAddress.c_str()
+  );
+  s_mqtt.publish(g_canonicalDiscoveryTopic, payload, /*retained=*/true);
   Serial.printf("[MQTT] %s → %s\n", g_announceTopic, g_bowlId);
 }
 
@@ -61,8 +77,19 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   msg[length] = '\0';
   Serial.printf("[MQTT] ← %s : %s\n", topic, msg);
 
-  if      (strcmp(msg, "open")  == 0) motorRequestOpen();
-  else if (strcmp(msg, "close") == 0) motorRequestClose();
+  static char lastMsg[32] = "";
+  static unsigned long lastMsgAt = 0;
+  if (strcmp(msg, lastMsg) == 0 && millis() - lastMsgAt < 500) {
+    Serial.println("[MQTT] duplicate command ignored");
+    return;
+  }
+  strncpy(lastMsg, msg, sizeof(lastMsg) - 1);
+  lastMsg[sizeof(lastMsg) - 1] = '\0';
+  lastMsgAt = millis();
+
+  if      (strcmp(msg, "open")   == 0) motorRequestOpen();
+  else if (strcmp(msg, "close")  == 0) motorRequestClose();
+  else if (strcmp(msg, "status") == 0) publishCurrentState();
 }
 
 // ── WiFi & MQTT connection ────────────────────────────────────────────────────
@@ -84,7 +111,9 @@ void connectMQTT() {
     if (s_mqtt.connect(g_bowlId)) {
       Serial.println(" connected.");
       s_mqtt.subscribe(g_cmdTopic);
+      s_mqtt.subscribe(g_canonicalCmdTopic);
       Serial.printf("[MQTT] Subscribed to %s\n", g_cmdTopic);
+      Serial.printf("[MQTT] Subscribed to %s\n", g_canonicalCmdTopic);
       publishAnnounce();      // let Flutter apps discover this bowl
       publishCurrentState();  // report lid position on (re)connect
     } else {
@@ -108,14 +137,36 @@ void setup() {
   WiFi.macAddress(mac);
   snprintf(g_bowlId,        sizeof(g_bowlId),        "%02x%02x%02x%02x%02x%02x",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  snprintf(g_canonicalBowlId, sizeof(g_canonicalBowlId), "bowl-%s", g_bowlId);
   snprintf(g_cmdTopic,      sizeof(g_cmdTopic),      "%s/%s/command",  TOPIC_PREFIX, g_bowlId);
   snprintf(g_statusTopic,   sizeof(g_statusTopic),   "%s/%s/status",   TOPIC_PREFIX, g_bowlId);
   snprintf(g_announceTopic, sizeof(g_announceTopic), "%s/%s/announce", TOPIC_PREFIX, g_bowlId);
+  snprintf(
+    g_canonicalCmdTopic,
+    sizeof(g_canonicalCmdTopic),
+    "foodbowl/%s/door/set",
+    g_canonicalBowlId
+  );
+  snprintf(
+    g_canonicalStatusTopic,
+    sizeof(g_canonicalStatusTopic),
+    "foodbowl/%s/door/status",
+    g_canonicalBowlId
+  );
+  snprintf(
+    g_canonicalDiscoveryTopic,
+    sizeof(g_canonicalDiscoveryTopic),
+    "foodbowl/discovery/%s",
+    g_canonicalBowlId
+  );
 
   Serial.printf("\n[Bowl] ID:              %s\n", g_bowlId);
+  Serial.printf("[Bowl] Canonical ID:    %s\n", g_canonicalBowlId);
   Serial.printf("[Bowl] Command topic:   %s\n", g_cmdTopic);
   Serial.printf("[Bowl] Status topic:    %s\n", g_statusTopic);
   Serial.printf("[Bowl] Announce topic:  %s\n", g_announceTopic);
+  Serial.printf("[Bowl] Canonical cmd:   %s\n", g_canonicalCmdTopic);
+  Serial.printf("[Bowl] Canonical status:%s\n", g_canonicalStatusTopic);
 
   connectWiFi();
   s_mqtt.setServer(MQTT_HOST, MQTT_PORT);

@@ -5,6 +5,7 @@
 
 struct FoodBowlIdentity {
   char bowlId[24];
+  char legacyBowlId[13];
   char macAddress[18];
   char clientId[64];
 };
@@ -15,6 +16,9 @@ struct FoodBowlTopics {
   char status[80];
   char result[80];
   char availability[88];
+  char legacyCommand[80];
+  char legacyStatus[80];
+  char legacyAnnounce[80];
 };
 
 void buildIdentity(FoodBowlIdentity& identity);

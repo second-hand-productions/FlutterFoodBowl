@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config.dart';
 import '../models/bowl.dart';
 import '../services/mqtt_service.dart';
 import '../services/bowl_service.dart';
@@ -18,6 +19,7 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
   bool _connected = false;
   String _statusMessage = 'Connecting…';
   final List<Bowl> _bowls = [];
+  final Set<String> _pendingDiscoveredBowlIds = {};
 
   @override
   void initState() {
@@ -37,7 +39,7 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
     _mqtt.onLidStateChanged = (bowlId, state) {
       if (!mounted) return;
       setState(() {
-        final idx = _bowls.indexWhere((b) => b.id == bowlId);
+        final idx = _bowls.indexWhere((b) => bowlIdsMatch(b.id, bowlId));
         if (idx != -1) _bowls[idx].lidState = state;
       });
     };
@@ -57,7 +59,9 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
           }
         },
         onDelete: (pbId) {
-          if (mounted) setState(() => _bowls.removeWhere((b) => b.pbId == pbId));
+          if (mounted) {
+            setState(() => _bowls.removeWhere((b) => b.pbId == pbId));
+          }
         },
         onUpdate: (pbId, name) {
           if (mounted) {
@@ -74,7 +78,7 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
   }
 
   Future<void> _addBowl(String id, String name) async {
-    if (_bowls.any((b) => b.id == id)) return;
+    if (_bowls.any((b) => bowlIdsMatch(b.id, id))) return;
     try {
       final bowl = await _bowlService.addBowl(id, name);
       if (mounted) setState(() => _bowls.add(bowl));
@@ -132,9 +136,21 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
   }
 
   void _handleAnnounce(String bowlId) {
-    if (_bowls.any((b) => b.id == bowlId)) return;
-    final defaultName = 'Bowl ${bowlId.substring(bowlId.length - 4)}';
-    _addBowl(bowlId, defaultName);
+    final isAlreadyPending = _pendingDiscoveredBowlIds.any(
+      (pendingId) => bowlIdsMatch(pendingId, bowlId),
+    );
+    if (_bowls.any((b) => bowlIdsMatch(b.id, bowlId)) || isAlreadyPending) {
+      return;
+    }
+
+    _pendingDiscoveredBowlIds.add(bowlId);
+    final suffix =
+        bowlId.length <= 4 ? bowlId : bowlId.substring(bowlId.length - 4);
+    final defaultName = 'Bowl $suffix';
+    _addBowl(
+      bowlId,
+      defaultName,
+    ).whenComplete(() => _pendingDiscoveredBowlIds.remove(bowlId));
   }
 
   void _showAddBowlDialog() {

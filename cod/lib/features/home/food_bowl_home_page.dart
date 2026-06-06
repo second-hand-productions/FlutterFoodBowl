@@ -101,6 +101,7 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
 
     _subscription = client.updates?.listen(_handleMessage);
     client.subscribe(discoveryTopicFilter, MqttQos.atLeastOnce);
+    client.subscribe(legacyAnnounceTopicFilter, MqttQos.atLeastOnce);
     for (final bowl in _foodBowls) {
       _subscribeToBowl(client, bowl);
     }
@@ -144,8 +145,13 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     );
 
     final topic = messages.first.topic;
-    if (isDiscoveryTopic(topic)) {
+    if (isDiscoveryTopic(topic) || isLegacyAnnounceTopic(topic)) {
       unawaited(_handleDiscovery(topic, payload));
+      return;
+    }
+
+    if (isLegacyStatusTopic(topic)) {
+      _handleLegacyStatus(topic, payload);
       return;
     }
 
@@ -167,10 +173,10 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     }
 
     final stream = parts[3];
-    final currentState = _bowlStates[bowlId] ?? const BowlRuntimeState();
+    final currentState = _bowlStates[bowl.id] ?? const BowlRuntimeState();
 
     setState(() {
-      _bowlStates[bowlId] = switch (stream) {
+      _bowlStates[bowl.id] = switch (stream) {
         'status' => currentState.copyWith(status: payload),
         'result' => currentState.copyWith(lastResult: payload),
         'availability' => currentState.copyWith(availability: payload),
@@ -194,31 +200,61 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     }
 
     final payload = MqttClientPayloadBuilder()..addString(action);
-    final topic = commandTopicFor(bowlId);
-    client.publishMessage(topic, MqttQos.atLeastOnce, payload.payload!);
+    for (final topic in commandTopicsFor(bowlId)) {
+      client.publishMessage(topic, MqttQos.atLeastOnce, payload.payload!);
+    }
 
     setState(() {
-      final currentState = _bowlStates[bowlId] ?? const BowlRuntimeState();
-      _bowlStates[bowlId] = currentState.copyWith(lastCommand: action);
+      final currentState = _bowlStates[bowl.id] ?? const BowlRuntimeState();
+      _bowlStates[bowl.id] = currentState.copyWith(lastCommand: action);
       _statusMessage = 'Sent "$action" to ${bowl.name}';
     });
   }
 
   void _subscribeToBowl(MqttClient client, FoodBowlConfig bowl) {
-    client.subscribe(statusTopicFor(bowl.id), MqttQos.atLeastOnce);
-    client.subscribe(resultTopicFor(bowl.id), MqttQos.atLeastOnce);
-    client.subscribe(availabilityTopicFor(bowl.id), MqttQos.atLeastOnce);
+    for (final id in compatibleBowlIds(bowl.id)) {
+      client.subscribe(statusTopicFor(id), MqttQos.atLeastOnce);
+      client.subscribe(resultTopicFor(id), MqttQos.atLeastOnce);
+      client.subscribe(availabilityTopicFor(id), MqttQos.atLeastOnce);
+      client.subscribe(legacyStatusTopicFor(id), MqttQos.atLeastOnce);
+    }
   }
 
   void _unsubscribeFromBowl(MqttClient client, FoodBowlConfig bowl) {
-    client.unsubscribe(statusTopicFor(bowl.id));
-    client.unsubscribe(resultTopicFor(bowl.id));
-    client.unsubscribe(availabilityTopicFor(bowl.id));
+    for (final id in compatibleBowlIds(bowl.id)) {
+      client.unsubscribe(statusTopicFor(id));
+      client.unsubscribe(resultTopicFor(id));
+      client.unsubscribe(availabilityTopicFor(id));
+      client.unsubscribe(legacyStatusTopicFor(id));
+    }
+  }
+
+  void _handleLegacyStatus(String topic, String payload) {
+    final parts = topic.split('/');
+    final bowlId = parts.length == 4 ? parts[2] : '';
+    final bowl = _bowlForId(bowlId);
+    if (bowl == null) {
+      setState(() {
+        _statusMessage = 'Ignored unconfigured bowl $bowlId';
+      });
+      return;
+    }
+
+    final currentState = _bowlStates[bowl.id] ?? const BowlRuntimeState();
+    setState(() {
+      _bowlStates[bowl.id] = currentState.copyWith(status: payload);
+      _statusMessage = 'Updated ${bowl.name} status';
+    });
   }
 
   BowlDiscovery? _parseDiscovery(String topic, String payload) {
     final topicParts = topic.split('/');
-    final topicBowlId = topicParts.length == 3 ? topicParts[2].trim() : '';
+    final topicBowlId =
+        isDiscoveryTopic(topic)
+            ? topicParts[2].trim()
+            : isLegacyAnnounceTopic(topic)
+            ? topicParts[2].trim()
+            : '';
 
     String? payloadBowlId;
     String? macAddress;
@@ -240,11 +276,16 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
         }
       }
     } on FormatException {
-      // The topic id is enough for discovery; older firmware may send plain text.
+      final trimmedPayload = payload.trim();
+      if (trimmedPayload.isNotEmpty) {
+        payloadBowlId = trimmedPayload;
+      }
     }
 
     final bowlId =
-        payloadBowlId != null && payloadBowlId == topicBowlId
+        payloadBowlId != null &&
+                (topicBowlId.isEmpty ||
+                    bowlIdsMatch(payloadBowlId, topicBowlId))
             ? payloadBowlId
             : topicBowlId;
     if (!isValidBowlId(bowlId)) {
@@ -265,11 +306,14 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
       return;
     }
 
-    if (_bowlForId(discovery.bowlId) != null ||
-        !_pendingDiscoveryBowlIds.add(discovery.bowlId)) {
+    final isAlreadyPending = _pendingDiscoveryBowlIds.any(
+      (bowlId) => bowlIdsMatch(bowlId, discovery.bowlId),
+    );
+    if (_bowlForId(discovery.bowlId) != null || isAlreadyPending) {
       _setStatus('Discovered known bowl ${discovery.bowlId}');
       return;
     }
+    _pendingDiscoveryBowlIds.add(discovery.bowlId);
 
     try {
       while (mounted && _isLoadingBowls) {
@@ -337,10 +381,15 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
   }
 
   Future<RecordModel?> _findBowlRecord(String bowlId) async {
-    final result = await _pb
-        .collection(bowlsCollection)
-        .getList(page: 1, perPage: 1, filter: 'bowl_id = "$bowlId"');
-    return result.items.isEmpty ? null : result.items.first;
+    for (final id in compatibleBowlIds(bowlId)) {
+      final result = await _pb
+          .collection(bowlsCollection)
+          .getList(page: 1, perPage: 1, filter: 'bowl_id = "$id"');
+      if (result.items.isNotEmpty) {
+        return result.items.first;
+      }
+    }
+    return null;
   }
 
   Future<void> _loadBowls() async {
@@ -419,6 +468,11 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     );
 
     if (bowl == null) {
+      return;
+    }
+
+    if (_bowlForId(bowl.id) != null) {
+      _setStatus('Bowl ${bowl.id} is already configured');
       return;
     }
 
@@ -534,7 +588,7 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
 
   FoodBowlConfig? _bowlForId(String bowlId) {
     for (final bowl in _foodBowls) {
-      if (bowl.id == bowlId) {
+      if (bowlIdsMatch(bowl.id, bowlId)) {
         return bowl;
       }
     }

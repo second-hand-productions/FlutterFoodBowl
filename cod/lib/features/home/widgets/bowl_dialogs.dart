@@ -63,7 +63,9 @@ class _AddBowlDialogState extends State<AddBowlDialog> {
                 if (!isValidBowlId(id)) {
                   return 'Use only letters, numbers, _, or -';
                 }
-                if (widget.existingIds.contains(id)) {
+                if (widget.existingIds.any((existingId) {
+                  return bowlIdsMatch(existingId, id);
+                })) {
                   return 'That bowl is already added';
                 }
                 return null;

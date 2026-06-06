@@ -31,7 +31,9 @@ void publishDiscovery();
 
 void publishStatus(const char* status) {
   mqtt.publish(topics.status, status, true);
+  mqtt.publish(topics.legacyStatus, status, true);
   Serial.printf("[MQTT] publish %s = %s\n", topics.status, status);
+  Serial.printf("[MQTT] publish %s = %s\n", topics.legacyStatus, status);
 }
 
 void publishCurrentPosition() {
@@ -81,6 +83,16 @@ void handleCommand(char* topic, byte* payload, unsigned int length) {
   }
 
   Serial.printf("[MQTT] received %s = %s\n", topic, message);
+
+  static char lastMessage[32] = "";
+  static unsigned long lastMessageAt = 0;
+  if (strcmp(message, lastMessage) == 0 && millis() - lastMessageAt < 500) {
+    Serial.println("[MQTT] duplicate command ignored");
+    return;
+  }
+  strncpy(lastMessage, message, sizeof(lastMessage) - 1);
+  lastMessage[sizeof(lastMessage) - 1] = '\0';
+  lastMessageAt = millis();
 
   if (strcmp(message, "status") == 0) {
     publishCurrentPosition();
@@ -220,6 +232,7 @@ void ensureMqtt() {
   mqtt.publish(topics.availability, "online", true);
   publishDiscovery();
   mqtt.subscribe(topics.command, 1);
+  mqtt.subscribe(topics.legacyCommand, 1);
   publishCurrentPosition();
 }
 
@@ -229,7 +242,13 @@ void publishDiscovery() {
   buildDiscoveryPayload(identity, ipAddress.c_str(), payload, sizeof(payload));
 
   mqtt.publish(topics.discovery, payload, true);
+  mqtt.publish(topics.legacyAnnounce, identity.legacyBowlId, true);
   Serial.printf("[MQTT] publish %s = %s\n", topics.discovery, payload);
+  Serial.printf(
+    "[MQTT] publish %s = %s\n",
+    topics.legacyAnnounce,
+    identity.legacyBowlId
+  );
 }
 
 void setup() {

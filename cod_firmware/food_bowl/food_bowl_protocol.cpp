@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <stdio.h>
+#include <string.h>
 
 void buildIdentity(FoodBowlIdentity& identity) {
   uint8_t mac[6];
@@ -20,15 +21,22 @@ void buildIdentity(FoodBowlIdentity& identity) {
   );
 
   snprintf(
-    identity.bowlId,
-    sizeof(identity.bowlId),
-    "bowl-%02x%02x%02x%02x%02x%02x",
+    identity.legacyBowlId,
+    sizeof(identity.legacyBowlId),
+    "%02x%02x%02x%02x%02x%02x",
     mac[0],
     mac[1],
     mac[2],
     mac[3],
     mac[4],
     mac[5]
+  );
+
+  snprintf(
+    identity.bowlId,
+    sizeof(identity.bowlId),
+    "bowl-%s",
+    identity.legacyBowlId
   );
 
   snprintf(
@@ -40,6 +48,9 @@ void buildIdentity(FoodBowlIdentity& identity) {
 }
 
 void buildTopics(const char* bowlId, FoodBowlTopics& topics) {
+  const char* legacyBowlId =
+    strncmp(bowlId, "bowl-", 5) == 0 ? bowlId + 5 : bowlId;
+
   snprintf(
     topics.discovery,
     sizeof(topics.discovery),
@@ -69,6 +80,24 @@ void buildTopics(const char* bowlId, FoodBowlTopics& topics) {
     sizeof(topics.availability),
     "foodbowl/%s/door/availability",
     bowlId
+  );
+  snprintf(
+    topics.legacyCommand,
+    sizeof(topics.legacyCommand),
+    "home/foodbowl/%s/command",
+    legacyBowlId
+  );
+  snprintf(
+    topics.legacyStatus,
+    sizeof(topics.legacyStatus),
+    "home/foodbowl/%s/status",
+    legacyBowlId
+  );
+  snprintf(
+    topics.legacyAnnounce,
+    sizeof(topics.legacyAnnounce),
+    "home/foodbowl/%s/announce",
+    legacyBowlId
   );
 }
 

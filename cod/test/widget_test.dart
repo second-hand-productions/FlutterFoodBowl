@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cod/config/food_bowl_settings.dart';
 import 'package:cod/main.dart';
 
 void main() {
+  test('builds compatibility topics for MAC-based bowl IDs', () {
+    expect(
+      compatibleBowlIds('bowl-aabbccddeeff'),
+      containsAll(['bowl-aabbccddeeff', 'aabbccddeeff']),
+    );
+    expect(
+      commandTopicsFor('bowl-aabbccddeeff'),
+      containsAll([
+        'foodbowl/bowl-aabbccddeeff/door/set',
+        'home/foodbowl/aabbccddeeff/command',
+      ]),
+    );
+  });
+
   testWidgets('adds bowl controls from the UI', (tester) async {
     tester.view.physicalSize = const Size(900, 1400);
     tester.view.devicePixelRatio = 1;

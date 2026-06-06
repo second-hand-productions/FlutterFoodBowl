@@ -38,6 +38,12 @@ The sketch matches the Flutter app's per-bowl topics:
 - Command topic: `foodbowl/<BOWL_ID>/door/set`
 - Status topic: `foodbowl/<BOWL_ID>/door/status`
 
+For compatibility with the older CLA app/firmware, the same board also accepts
+`home/foodbowl/<MAC_ID>/command` and publishes
+`home/foodbowl/<MAC_ID>/status` plus `home/foodbowl/<MAC_ID>/announce`, where
+`MAC_ID` is the raw 12-character MAC suffix from `BOWL_ID`
+(`bowl-aabbccddeeff` -> `aabbccddeeff`).
+
 The discovery payload includes `bowl_id`, `mac_address`, and `ip_address`.
 
 Send `open` or `close` to the command topic. The firmware publishes:

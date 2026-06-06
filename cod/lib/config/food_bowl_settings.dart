@@ -35,6 +35,10 @@ String pocketBaseUri = _configuredPocketBaseUri.ifNotEmpty(
 );
 const String bowlsCollection = 'bowls';
 const String discoveryTopicFilter = 'foodbowl/discovery/+';
+const String legacyTopicPrefix = 'home/foodbowl';
+const String legacyAnnounceTopicFilter = '$legacyTopicPrefix/+/announce';
+
+final RegExp _macBowlIdPattern = RegExp(r'^[a-f0-9]{12}$');
 
 Future<void> initFoodBowlSettings() async {
   final brokerOverride = _configuredBrokerUri.ifNotEmpty(
@@ -80,10 +84,69 @@ String statusTopicFor(String bowlId) => 'foodbowl/$bowlId/door/status';
 String resultTopicFor(String bowlId) => 'foodbowl/$bowlId/door/result';
 String availabilityTopicFor(String bowlId) =>
     'foodbowl/$bowlId/door/availability';
+String legacyCommandTopicFor(String bowlId) =>
+    '$legacyTopicPrefix/$bowlId/command';
+String legacyStatusTopicFor(String bowlId) =>
+    '$legacyTopicPrefix/$bowlId/status';
+
+List<String> compatibleBowlIds(String bowlId) {
+  final ids = <String>[];
+
+  void add(String value) {
+    if (value.isNotEmpty && !ids.contains(value)) {
+      ids.add(value);
+    }
+  }
+
+  final trimmed = bowlId.trim();
+  final lower = trimmed.toLowerCase();
+  add(trimmed);
+
+  if (lower.startsWith('bowl-')) {
+    add(lower);
+    final suffix = lower.substring('bowl-'.length);
+    if (_macBowlIdPattern.hasMatch(suffix)) {
+      add(suffix);
+    }
+  } else if (_macBowlIdPattern.hasMatch(lower)) {
+    add(lower);
+    add('bowl-$lower');
+  }
+
+  return ids;
+}
+
+bool bowlIdsMatch(String configuredId, String receivedId) {
+  final receivedIds = compatibleBowlIds(receivedId);
+  return compatibleBowlIds(configuredId).any(receivedIds.contains);
+}
+
+Set<String> commandTopicsFor(String bowlId) {
+  return {
+    for (final id in compatibleBowlIds(bowlId)) commandTopicFor(id),
+    for (final id in compatibleBowlIds(bowlId)) legacyCommandTopicFor(id),
+  };
+}
 
 bool isDiscoveryTopic(String topic) {
   final parts = topic.split('/');
   return parts.length == 3 && parts[0] == 'foodbowl' && parts[1] == 'discovery';
+}
+
+bool isLegacyAnnounceTopic(String topic) {
+  final parts = topic.split('/');
+  return parts.length == 4 &&
+      parts[0] == 'home' &&
+      parts[1] == 'foodbowl' &&
+      parts[3] == 'announce';
+}
+
+bool isLegacyStatusTopic(String topic) {
+  final parts = topic.split('/');
+  return parts.length == 4 &&
+      parts[0] == 'home' &&
+      parts[1] == 'foodbowl' &&
+      parts[3] == 'status';
 }
 
 bool isValidBowlId(String id) {
