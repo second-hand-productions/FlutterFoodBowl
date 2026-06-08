@@ -6,6 +6,7 @@ host. nginx owns `/`, serves the apps by path, and proxies shared backends:
 - `/cla/` -> `/var/www/cla`
 - `/cod/` -> `/var/www/cod`
 - `/pb/` -> PocketBase on `127.0.0.1:8090`
+- `/frigate/` -> Frigate on `127.0.0.1:5000`
 - `/mqtt` -> Mosquitto WebSockets on `192.168.0.49:9001`
 
 Tailscale Serve should forward the MagicDNS HTTPS root to local nginx port 80:

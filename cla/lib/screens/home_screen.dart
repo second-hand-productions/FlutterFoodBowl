@@ -3,16 +3,19 @@ import '../models/bowl.dart';
 import '../services/mqtt_service.dart';
 import '../services/bowl_service.dart';
 import '../widgets/bowl_card.dart';
+import 'camera_screen.dart';
 
 class FoodBowlHome extends StatefulWidget {
   const FoodBowlHome({
     super.key,
     required this.bowlService,
     required this.mqttService,
+    required this.camBase,
   });
 
   final BowlService bowlService;
   final MqttService mqttService;
+  final String camBase;
 
   @override
   State<FoodBowlHome> createState() => _FoodBowlHomeState();
@@ -269,6 +272,16 @@ class _FoodBowlHomeState extends State<FoodBowlHome> {
                       onRemove: () => _removeBowl(_bowls[i].pbId),
                       onRename: () =>
                           _renameBowl(_bowls[i].pbId, _bowls[i].name),
+                      onTap: _bowls[i].camera == null
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => CameraScreen(
+                                    bowl: _bowls[i],
+                                    camBase: widget.camBase,
+                                  ),
+                                ),
+                              ),
                     ),
                   ),
                 ),

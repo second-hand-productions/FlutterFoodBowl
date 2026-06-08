@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cod/features/home/food_bowl_home_page.dart';
 import 'package:cod/services/bowls/bowl_repository.dart';
+import 'package:cod/services/cameras/camera_feed_repository.dart';
 import 'package:cod/services/mqtt/mqtt_client_factory.dart';
 
 class FoodBowlApp extends StatelessWidget {
@@ -10,12 +11,14 @@ class FoodBowlApp extends StatelessWidget {
     this.autoConnect = true,
     this.usePocketBase = true,
     this.bowlRepository,
+    this.cameraFeedRepository,
     this.mqttClientFactory,
   });
 
   final bool autoConnect;
   final bool usePocketBase;
   final BowlRepository? bowlRepository;
+  final CameraFeedRepository? cameraFeedRepository;
   final MqttClientFactory? mqttClientFactory;
 
   @override
@@ -39,6 +42,7 @@ class FoodBowlApp extends StatelessWidget {
         autoConnect: autoConnect,
         usePocketBase: usePocketBase,
         bowlRepository: bowlRepository,
+        cameraFeedRepository: cameraFeedRepository,
         mqttClientFactory: mqttClientFactory,
       ),
     );

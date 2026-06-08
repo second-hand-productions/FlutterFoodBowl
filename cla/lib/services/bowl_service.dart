@@ -7,7 +7,9 @@ class BowlService {
   final PocketBase _pb;
 
   Future<List<Bowl>> loadBowls() async {
-    final records = await _pb.collection('bowls').getFullList(sort: 'created');
+    final records = await _pb
+        .collection('bowls')
+        .getFullList(sort: 'created', expand: 'camera');
     return records.map(Bowl.fromRecord).toList();
   }
 
@@ -16,16 +18,20 @@ class BowlService {
     required void Function(String pbId) onDelete,
     required void Function(String pbId, String name) onUpdate,
   }) {
-    _pb.collection('bowls').subscribe('*', (e) {
-      if (e.record == null) return;
-      if (e.action == 'create') {
-        onCreate(Bowl.fromRecord(e.record!));
-      } else if (e.action == 'delete') {
-        onDelete(e.record!.id);
-      } else if (e.action == 'update') {
-        onUpdate(e.record!.id, e.record!.getStringValue('name'));
-      }
-    });
+    _pb.collection('bowls').subscribe(
+      '*',
+      (e) {
+        if (e.record == null) return;
+        if (e.action == 'create') {
+          onCreate(Bowl.fromRecord(e.record!));
+        } else if (e.action == 'delete') {
+          onDelete(e.record!.id);
+        } else if (e.action == 'update') {
+          onUpdate(e.record!.id, e.record!.getStringValue('name'));
+        }
+      },
+      expand: 'camera',
+    );
   }
 
   Future<Bowl> addBowl(String id, String name) async {

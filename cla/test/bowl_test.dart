@@ -17,6 +17,24 @@ void main() {
       expect(bowl.id, 'a4cf123456ab');
       expect(bowl.name, 'Kitchen Bowl');
       expect(bowl.lidState, LidState.unknown);
+      expect(bowl.camera, isNull);
+    });
+
+    test('parses an expanded camera relation when present', () {
+      final record = RecordModel.fromJson({
+        'id': 'pb_1',
+        'bowl_id': 'a4cf123456ab',
+        'name': 'Kitchen Bowl',
+        'expand': {
+          'camera': {'id': 'cam_1', 'frigate_name': 'zero1'},
+        },
+      });
+
+      final bowl = Bowl.fromRecord(record);
+
+      expect(bowl.camera, isNotNull);
+      expect(bowl.camera!.pbId, 'cam_1');
+      expect(bowl.camera!.frigateName, 'zero1');
     });
   });
 }

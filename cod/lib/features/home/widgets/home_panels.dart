@@ -140,6 +140,7 @@ class DoorControls extends StatelessWidget {
     required this.onOpen,
     required this.onClose,
     required this.onStatus,
+    required this.onViewCamera,
     required this.onRename,
     required this.onRemove,
   });
@@ -150,6 +151,7 @@ class DoorControls extends StatelessWidget {
   final VoidCallback onOpen;
   final VoidCallback onClose;
   final VoidCallback onStatus;
+  final VoidCallback onViewCamera;
   final VoidCallback onRename;
   final VoidCallback onRemove;
 
@@ -157,69 +159,78 @@ class DoorControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    bowl.name,
-                    style: Theme.of(context).textTheme.titleLarge,
+      child: InkWell(
+        onTap: onViewCamera,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      bowl.name,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                   ),
-                ),
-                _AvailabilityChip(availability: state.availability),
-                IconButton(
-                  tooltip: 'Rename bowl',
-                  onPressed: onRename,
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Remove bowl',
-                  onPressed: onRemove,
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _BrokerDetail(label: 'Bowl ID', value: bowl.id),
-            const SizedBox(height: 8),
-            _BrokerDetail(label: 'Command', value: commandTopicFor(bowl.id)),
-            const SizedBox(height: 8),
-            _BrokerDetail(label: 'Status', value: state.status),
-            const SizedBox(height: 8),
-            _BrokerDetail(label: 'Last command', value: state.lastCommand),
-            const SizedBox(height: 8),
-            _BrokerDetail(label: 'Last result', value: state.lastResult),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: isConnected ? onOpen : null,
-                    icon: const Icon(Icons.lock_open),
-                    label: const Text('Open'),
+                  _AvailabilityChip(availability: state.availability),
+                  IconButton(
+                    tooltip: 'View camera',
+                    onPressed: onViewCamera,
+                    icon: const Icon(Icons.videocam_outlined),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: isConnected ? onClose : null,
-                    icon: const Icon(Icons.lock),
-                    label: const Text('Close'),
+                  IconButton(
+                    tooltip: 'Rename bowl',
+                    onPressed: onRename,
+                    icon: const Icon(Icons.edit_outlined),
                   ),
-                ),
-                const SizedBox(width: 12),
-                IconButton.filledTonal(
-                  tooltip: 'Refresh status',
-                  onPressed: isConnected ? onStatus : null,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
-          ],
+                  IconButton(
+                    tooltip: 'Remove bowl',
+                    onPressed: onRemove,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _BrokerDetail(label: 'Bowl ID', value: bowl.id),
+              const SizedBox(height: 8),
+              _BrokerDetail(label: 'Command', value: commandTopicFor(bowl.id)),
+              const SizedBox(height: 8),
+              _BrokerDetail(label: 'Status', value: state.status),
+              const SizedBox(height: 8),
+              _BrokerDetail(label: 'Last command', value: state.lastCommand),
+              const SizedBox(height: 8),
+              _BrokerDetail(label: 'Last result', value: state.lastResult),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: isConnected ? onOpen : null,
+                      icon: const Icon(Icons.lock_open),
+                      label: const Text('Open'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: isConnected ? onClose : null,
+                      icon: const Icon(Icons.lock),
+                      label: const Text('Close'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton.filledTonal(
+                    tooltip: 'Refresh status',
+                    onPressed: isConnected ? onStatus : null,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -14,6 +14,7 @@ Future<void> main() async {
     FoodBowlApp(
       bowlService: BowlService(pb),
       mqttService: MqttService(wsUrl: appConfig.mqttWsUrl),
+      camBase: appConfig.camBase,
     ),
   );
 }
@@ -23,10 +24,12 @@ class FoodBowlApp extends StatelessWidget {
     super.key,
     required this.bowlService,
     required this.mqttService,
+    required this.camBase,
   });
 
   final BowlService bowlService;
   final MqttService mqttService;
+  final String camBase;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +39,11 @@ class FoodBowlApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
         useMaterial3: true,
       ),
-      home: FoodBowlHome(bowlService: bowlService, mqttService: mqttService),
+      home: FoodBowlHome(
+        bowlService: bowlService,
+        mqttService: mqttService,
+        camBase: camBase,
+      ),
     );
   }
 }

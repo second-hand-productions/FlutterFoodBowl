@@ -6,10 +6,12 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:pocketbase/pocketbase.dart';
 
 import 'package:cod/config/food_bowl_settings.dart';
+import 'package:cod/features/bowl_detail/bowl_detail_page.dart';
 import 'package:cod/features/home/widgets/bowl_dialogs.dart';
 import 'package:cod/features/home/widgets/home_panels.dart';
 import 'package:cod/models/bowl_models.dart';
 import 'package:cod/services/bowls/bowl_repository.dart';
+import 'package:cod/services/cameras/camera_feed_repository.dart';
 import 'package:cod/services/mqtt/mqtt_client_factory.dart';
 import 'package:cod/services/mqtt/mqtt_topics.dart';
 
@@ -19,12 +21,14 @@ class FoodBowlHomePage extends StatefulWidget {
     this.autoConnect = true,
     this.usePocketBase = true,
     this.bowlRepository,
+    this.cameraFeedRepository,
     this.mqttClientFactory,
   });
 
   final bool autoConnect;
   final bool usePocketBase;
   final BowlRepository? bowlRepository;
+  final CameraFeedRepository? cameraFeedRepository;
   final MqttClientFactory? mqttClientFactory;
 
   @override
@@ -37,6 +41,9 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
   final Set<String> _pendingDiscoveryBowlIds = {};
   late final BowlRepository _bowlRepository =
       widget.bowlRepository ?? PocketBaseBowlRepository();
+  late final CameraFeedRepository? _cameraFeedRepository =
+      widget.cameraFeedRepository ??
+      (widget.usePocketBase ? PocketBaseCameraFeedRepository() : null);
   late final MqttClientFactory _mqttClientFactory =
       widget.mqttClientFactory ?? createMqttClient;
 
@@ -512,6 +519,24 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
     });
   }
 
+  Future<void> _openBowlDetail(FoodBowlConfig bowl) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return BowlDetailPage(
+            bowl: bowl,
+            state: _bowlStates[bowl.id] ?? const BowlRuntimeState(),
+            isConnected: _isConnected,
+            cameraFeedRepository: _cameraFeedRepository,
+            onOpen: () => _publishDoorAction(bowl.id, 'open'),
+            onClose: () => _publishDoorAction(bowl.id, 'close'),
+            onStatus: () => _publishDoorAction(bowl.id, 'status'),
+          );
+        },
+      ),
+    );
+  }
+
   FoodBowlConfig? _bowlForId(String bowlId) {
     for (final bowl in _foodBowls) {
       if (bowl.id == bowlId) {
@@ -585,6 +610,7 @@ class _FoodBowlHomePageState extends State<FoodBowlHomePage> {
                   onOpen: () => _publishDoorAction(bowl.id, 'open'),
                   onClose: () => _publishDoorAction(bowl.id, 'close'),
                   onStatus: () => _publishDoorAction(bowl.id, 'status'),
+                  onViewCamera: () => unawaited(_openBowlDetail(bowl)),
                   onRename: () => unawaited(_renameBowl(bowl)),
                   onRemove: () => unawaited(_removeBowl(bowl)),
                 ),

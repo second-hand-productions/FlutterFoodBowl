@@ -11,7 +11,7 @@ sudo /usr/local/sbin/deploy-cod-nginx.sh "$PWD/cod/build/web" "$PWD/deploy/foodb
 `deploy-cod-nginx.sh` publishes the build to `/var/www/cod`, installs the
 shared `foodbowl` nginx vhost, validates with `nginx -t`, and reloads. nginx
 owns `/`; the COD app is served at `/cod/`, while shared backends stay at
-`/pb/` and `/mqtt`.
+`/pb/`, `/frigate/`, and `/mqtt`.
 
 ## One-time server setup
 
@@ -23,6 +23,7 @@ the CLA and COD deploy scripts.
 ## Backends
 
 - PocketBase runs on the Ubuntu host at `127.0.0.1:8090`.
+- Frigate runs on the Ubuntu host at `127.0.0.1:5000`.
 - Mosquitto WebSockets run on the MQTT LXC at `192.168.0.49:9001`.
 - Tailscale TLS should forward HTTPS for `ubuntuserver.tailb99a87.ts.net` to
   local nginx port 80.

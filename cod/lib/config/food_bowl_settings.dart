@@ -22,6 +22,9 @@ const String _configuredHttpBaseUri = String.fromEnvironment(
 const String _configuredWebSocketBaseUri = String.fromEnvironment(
   'FOOD_BOWL_WEBSOCKET_BASE_URI',
 );
+const String _configuredFrigateUri = String.fromEnvironment(
+  'FOOD_BOWL_FRIGATE_URI',
+);
 const String _legacyWebBrokerUri = String.fromEnvironment(
   'FOOD_BOWL_WEB_BROKER_URI',
 );
@@ -33,7 +36,18 @@ String brokerUri = _defaultBrokerUri;
 String pocketBaseUri = _configuredPocketBaseUri.ifNotEmpty(
   'http://$lanBackendHost/pb',
 );
+String frigateUri = _configuredFrigateUri.ifNotEmpty(
+  'http://$lanBackendHost/frigate',
+);
 const String bowlsCollection = 'bowls';
+const String cameraCollection = String.fromEnvironment(
+  'FOOD_BOWL_CAMERA_COLLECTION',
+  defaultValue: 'camera',
+);
+const String cameraBowlRelationField = String.fromEnvironment(
+  'FOOD_BOWL_CAMERA_BOWL_FIELD',
+  defaultValue: 'bowl',
+);
 
 Future<void> initFoodBowlSettings() async {
   final brokerOverride = _configuredBrokerUri.ifNotEmpty(
@@ -41,6 +55,7 @@ Future<void> initFoodBowlSettings() async {
   );
   final hasBrokerOverride = brokerOverride.isNotEmpty;
   final hasPocketBaseOverride = _configuredPocketBaseUri.isNotEmpty;
+  final hasFrigateOverride = _configuredFrigateUri.isNotEmpty;
 
   if (hasBrokerOverride) {
     brokerUri = brokerOverride;
@@ -48,7 +63,10 @@ Future<void> initFoodBowlSettings() async {
   if (hasPocketBaseOverride) {
     pocketBaseUri = _configuredPocketBaseUri;
   }
-  if (hasBrokerOverride && hasPocketBaseOverride) {
+  if (hasFrigateOverride) {
+    frigateUri = _configuredFrigateUri;
+  }
+  if (hasBrokerOverride && hasPocketBaseOverride && hasFrigateOverride) {
     return;
   }
 
@@ -68,6 +86,9 @@ Future<void> initFoodBowlSettings() async {
 
   if (!hasPocketBaseOverride) {
     pocketBaseUri = '${_withoutTrailingSlash(httpBaseUri)}/pb';
+  }
+  if (!hasFrigateOverride) {
+    frigateUri = '${_withoutTrailingSlash(httpBaseUri)}/frigate';
   }
   if (!hasBrokerOverride) {
     brokerUri = '${_withoutTrailingSlash(webSocketBaseUri)}/mqtt';
