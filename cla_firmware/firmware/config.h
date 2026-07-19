@@ -23,7 +23,7 @@ constexpr int PIN_AIN1 = 16;   // motor direction A
 constexpr int PIN_AIN2 = 18;   // motor direction B
 //   A3144 Hall effect sensors (output LOW when south-pole magnet present)
 constexpr int PIN_HALL_OPEN   = 33;   // LOW = lid fully open
-constexpr int PIN_HALL_CLOSED = 35;   // LOW = lid fully closed
+constexpr int PIN_HALL_CLOSED = 33;   // LOW = lid fully closed
 
 // ── Motor tuning ──────────────────────────────────────────────────────────────
 constexpr unsigned long MOTOR_TIMEOUT_MS = 5000;  // max travel time → "failed"
