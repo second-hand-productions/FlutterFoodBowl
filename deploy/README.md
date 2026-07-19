@@ -1,25 +1,40 @@
 # Shared nginx deploy
 
-`foodbowl.nginx.conf` is the shared nginx front door for the Ubuntu/Tailscale
-host. nginx owns `/`, serves the apps by path, and proxies shared backends:
+The Ubuntu/Tailscale host serves every app from **one** vhost, by path:
 
 - `/cla/` -> `/var/www/cla`
 - `/cod/` -> `/var/www/cod`
+- `/forms/` -> forms container on `127.0.0.1:8080` (separate repo)
 - `/pb/` -> PocketBase on `127.0.0.1:8090`
 - `/mqtt` -> Mosquitto WebSockets on `192.168.0.49:9001`
 
-Tailscale Serve should forward the MagicDNS HTTPS root to local nginx port 80:
+Same paths on both networks — `http://ubuntu.lan/cla/` on the LAN,
+`https://ubuntuserver.tailb99a87.ts.net/cla/` over Tailscale.
+
+## Ownership
+
+The **root vhost is infrastructure** (`/etc/nginx/sites-available/root`). It
+owns `server_name`, the landing page and the shared backends, and it is
+installed by hand — no app pipeline may rewrite it. That file lives in the
+`forms` repo at `deploy/root.nginx.conf` purely so it is version-controlled.
+
+Apps contribute **only** a location fragment in `/etc/nginx/apps.d/`, which the
+root vhost includes:
+
+```
+/etc/nginx/apps.d/foodbowl.conf   <- this repo (deploy/foodbowl.nginx.conf)
+/etc/nginx/apps.d/forms.conf      <- forms repo
+```
+
+Adding an app means dropping one more file in `apps.d/`. No new DNS name, no
+new Tailscale port, no edits to another project's config.
+
+Tailscale Serve needs a single mapping, forwarding the MagicDNS HTTPS root to
+local nginx:
 
 ```bash
 sudo tailscale serve --bg https / http://127.0.0.1:80
 ```
-
-The app-specific deploy scripts install this same config to
-`/etc/nginx/sites-available/foodbowl`, enable it, remove the legacy per-app
-enabled sites plus the stock nginx `default` site, validate nginx, and reload.
-The vhost also includes the Ubuntu server's Tailscale IP in `server_name` so
-direct Tailscale-IP URLs work when MagicDNS is unavailable, for example
-`http://100.95.188.96/cod/`.
 
 ## One-time server setup
 
@@ -49,10 +64,5 @@ sudo chmod 0440 /etc/sudoers.d/github-runner
 sudo visudo -c
 ```
 
-If the old COD-specific sudoers file exists from testing, remove it after the
-combined rule validates:
-
-```bash
-sudo rm -f /etc/sudoers.d/github-runner-cod
-sudo visudo -c
-```
+Reinstall the scripts whenever their contents change in this repo — they are
+deliberately not auto-installed by the workflow.
